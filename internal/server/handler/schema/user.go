@@ -1,0 +1,23 @@
+package schema
+
+type LoginReq struct {
+	Name     string `json:"name"`
+	Password string `json:"password"`
+}
+
+type LoginRsp struct {
+	ID       string `json:"id"`
+	Nickname string `json:"nickname"`
+	Expire   int    `json:"expire"`
+}
+
+type RefreshRsp struct {
+	Expire int `json:"expire"`
+}
+
+type RegisterReq struct {
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
+	Nickname string `json:"nickname"`
+}
