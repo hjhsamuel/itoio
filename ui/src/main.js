@@ -42,7 +42,8 @@ const icons = {
   shield: '<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>',
   users: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>',
   video: '<svg viewBox="0 0 24 24"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>',
-  wifi: '<svg viewBox="0 0 24 24"><path d="M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0"/><path d="M12 20h.01"/></svg>'
+  wifi: '<svg viewBox="0 0 24 24"><path d="M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0"/><path d="M12 20h.01"/></svg>',
+  maximize: '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
 };
 
 function readSession() {
@@ -307,7 +308,9 @@ function roomPage() {
         <div class="room-menu">
           <button class="ghost" data-page="rooms">${icon("video")}房间管理</button>
           <button class="secondary" id="leave-room">${icon("logOut")}离开房间</button>
-          <button class="primary" id="share-screen" ${currentUser()?.owner ? "" : "disabled"}>${icon("screen")}开始共享</button>
+          <button class="${state.stream ? "secondary" : "primary"}" id="share-screen" ${currentUser()?.owner ? "" : "disabled"}>
+            ${state.stream ? icon("logOut") + "停止共享" : icon("screen") + "开始共享"}
+          </button>
           <div class="room-count">${icon("users")}<span>${(room.users || []).length} 人在线</span></div>
         </div>
       </section>
@@ -332,18 +335,26 @@ function roomPage() {
 }
 
 function videoTiles() {
-  const remoteTiles = Array.from(state.remoteStreams.keys()).map((id) => `
+  const remoteEntries = Array.from(state.remoteStreams.entries());
+  const remoteTiles = remoteEntries.slice(0, 1).map(([id]) => `
     <div class="video-tile">
       <video data-peer="${escapeHtml(id)}" autoplay playsinline></video>
       <div class="tile-label">${escapeHtml(peerName(id))}</div>
+      <button class="fullscreen-btn" title="全屏" onclick="this.closest('.video-tile').requestFullscreen()">${icon("maximize")}</button>
     </div>
   `).join("");
-  const hasVideo = state.stream || state.remoteStreams.size > 0;
-  return `
+
+  const localTile = state.stream ? `
     <div class="video-tile local">
       <video id="local-video" autoplay muted playsinline></video>
       <div class="tile-label">本地共享</div>
+      <button class="fullscreen-btn" title="全屏" onclick="this.closest('.video-tile').requestFullscreen()">${icon("maximize")}</button>
     </div>
+  ` : "";
+
+  const hasVideo = localTile || remoteTiles;
+  return `
+    ${localTile}
     ${remoteTiles}
     ${hasVideo ? "" : '<div class="empty-video">等待屏幕共享或媒体连接。</div>'}
   `;
@@ -476,7 +487,9 @@ function bindApp() {
     sendRoomEvent("join", { id: form.get("id"), secret: form.get("secret") });
   });
   document.querySelector("#leave-room")?.addEventListener("click", leaveRoom);
-  document.querySelector("#share-screen")?.addEventListener("click", startShare);
+  document.querySelector("#share-screen")?.addEventListener("click", () => {
+    state.stream ? stopShare() : startShare();
+  });
   document.querySelector("#create-invite")?.addEventListener("click", createInvite);
   document.querySelector("#refresh-invites")?.addEventListener("click", loadInvites);
   document.querySelector("#password-form")?.addEventListener("submit", updatePassword);
@@ -612,25 +625,33 @@ async function handleSignal(message) {
 async function startShare() {
   try {
     const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-    let mic = null;
+    const tracks = [...display.getTracks()];
     try {
-      mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      mic.getAudioTracks().forEach((track) => display.addTrack(track));
-    } catch {}
-    state.stream = display;
-    display.getTracks().forEach((track) => track.addEventListener("ended", () => stopShare()));
+      const mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      tracks.push(...mic.getAudioTracks());
+    } catch (e) {
+      console.warn("Could not acquire microphone", e);
+    }
+    state.stream = new MediaStream(tracks);
+    display.getVideoTracks()[0]?.addEventListener("ended", () => stopShare());
     render();
-    for (const user of (state.room?.users || []).filter((u) => !u.owner && u.id !== state.session.id)) {
+    const targets = (state.room?.users || []).filter((u) => !u.owner && u.id !== state.session.id);
+    for (const user of targets) {
       await ensurePeer(user.id, true);
     }
   } catch (err) {
-    notice(err.message || "无法开始屏幕共享", "error");
+    if (err.name !== "NotAllowedError") {
+      notice(err.message || "无法开始屏幕共享", "error");
+    }
+    stopShare();
   }
 }
 
 function stopShare() {
-  state.stream?.getTracks().forEach((track) => track.stop());
-  state.stream = null;
+  if (state.stream) {
+    state.stream.getTracks().forEach((track) => track.stop());
+    state.stream = null;
+  }
   state.peers.forEach((peer) => peer.close());
   state.peers.clear();
   state.dataChannels.clear();
@@ -641,39 +662,50 @@ function stopShare() {
 }
 
 async function ensurePeer(id, initiator = false) {
-  if (state.peers.has(id)) return state.peers.get(id);
-  const peer = new RTCPeerConnection({ iceServers: state.iceServers });
-  state.peers.set(id, peer);
-  state.peerStates.set(id, "connecting");
-  updateWebrtcStatus();
-  const remote = new MediaStream();
-  state.remoteStreams.set(id, remote);
-  if (initiator) {
-    registerDataChannel(id, peer.createDataChannel("chat"));
-  }
-  if (state.stream) state.stream.getTracks().forEach((track) => peer.addTrack(track, state.stream));
-  peer.ondatachannel = (event) => {
-    if (event.channel.label === "chat") registerDataChannel(id, event.channel);
-  };
-  peer.ontrack = (event) => {
-    remote.addTrack(event.track);
-    // TODO
-    // event.streams[0]?.getTracks().forEach((track) => remote.addTrack(track));
-    render();
-  };
-  peer.onicecandidate = (event) => {
-    if (event.candidate) sendSignal(id, "candidate", event.candidate);
-  };
-  peer.onconnectionstatechange = () => {
-    if (["failed", "disconnected", "closed"].includes(peer.connectionState)) {
-      state.peerStates.set(id, "failed");
-      updateWebrtcStatus();
+  let peer = state.peers.get(id);
+  const existed = !!peer;
+  if (!peer) {
+    peer = new RTCPeerConnection({ iceServers: state.iceServers });
+    state.peers.set(id, peer);
+    state.peerStates.set(id, "connecting");
+    updateWebrtcStatus();
+    if (initiator) {
+      registerDataChannel(id, peer.createDataChannel("chat"));
     }
-  };
-  peer.oniceconnectionstatechange = () => {
-    updatePeerHolePunchStatus(id, peer);
-  };
-  if (initiator) {
+    peer.ondatachannel = (event) => {
+      if (event.channel.label === "chat") registerDataChannel(id, event.channel);
+    };
+    peer.ontrack = (event) => {
+      const stream = event.streams[0] || new MediaStream([event.track]);
+      state.remoteStreams.set(id, stream);
+      render();
+    };
+    peer.onicecandidate = (event) => {
+      if (event.candidate) sendSignal(id, "candidate", event.candidate);
+    };
+    peer.onconnectionstatechange = () => {
+      if (["failed", "disconnected", "closed"].includes(peer.connectionState)) {
+        state.peerStates.set(id, "failed");
+        updateWebrtcStatus();
+      }
+    };
+    peer.oniceconnectionstatechange = () => {
+      updatePeerHolePunchStatus(id, peer);
+    };
+  }
+
+  let tracksAdded = false;
+  if (state.stream) {
+    const senders = peer.getSenders();
+    state.stream.getTracks().forEach((track) => {
+      if (!senders.some((s) => s.track === track)) {
+        peer.addTrack(track, state.stream);
+        tracksAdded = true;
+      }
+    });
+  }
+
+  if (initiator && (!existed || tracksAdded)) {
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
     sendSignal(id, "offer", offer);
@@ -846,10 +878,14 @@ function peerName(id) {
 
 function attachVideoElements() {
   const local = document.querySelector("#local-video");
-  if (local && local.srcObject !== state.stream) local.srcObject = state.stream;
+  if (local && local.srcObject !== state.stream) {
+    local.srcObject = state.stream;
+  }
   document.querySelectorAll("video[data-peer]").forEach((video) => {
     const stream = state.remoteStreams.get(video.dataset.peer);
-    if (video.srcObject !== stream) video.srcObject = stream;
+    if (stream && video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
   });
 }
 

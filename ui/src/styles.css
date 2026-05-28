@@ -498,6 +498,28 @@ nav {
   font-size: 0.8rem;
 }
 
+.fullscreen-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.54);
+  color: #d9e4e2;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.2s;
+}
+
+.fullscreen-btn:hover {
+  background: rgba(0, 0, 0, 0.74);
+}
+
 .empty-video {
   display: grid;
   place-items: center;
@@ -545,6 +567,7 @@ nav {
 }
 
 .video-window {
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   align-content: center;
   min-height: 0;
