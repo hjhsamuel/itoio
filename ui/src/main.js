@@ -185,7 +185,7 @@ function authView() {
         </div>
         <form id="auth-form" class="stack">
           ${isRegister ? field("code", "邀请码", "text", "输入邀请码") : ""}
-          ${field("name", "用户名", "text", "admin")}
+          ${field("name", "用户名", "text", "账号")}
           ${isRegister ? field("nickname", "昵称", "text", "用于房间展示") : ""}
           ${field("password", "密码", "password", "至少 8 位，包含大小写、数字和特殊字符")}
           <button class="primary" type="submit">${isRegister ? icon("plus") + "创建账号" : icon("shield") + "进入控制台"}</button>
@@ -624,7 +624,14 @@ async function handleSignal(message) {
 
 async function startShare() {
   try {
-    const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const display = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        width: { max: 1920 },
+        height: { max: 1080 },
+        frameRate: { max: 60 }
+      },
+      audio: true
+    });
     const tracks = [...display.getTracks()];
     try {
       const mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -699,7 +706,14 @@ async function ensurePeer(id, initiator = false) {
     const senders = peer.getSenders();
     state.stream.getTracks().forEach((track) => {
       if (!senders.some((s) => s.track === track)) {
-        peer.addTrack(track, state.stream);
+        const sender = peer.addTrack(track, state.stream);
+        if (track.kind === "video") {
+          const params = sender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          params.encodings[0].maxBitrate = 2000000;
+          params.encodings[0].networkPriority = "high";
+          sender.setParameters(params).catch((e) => console.error("Could not set video parameters", e));
+        }
         tracksAdded = true;
       }
     });
