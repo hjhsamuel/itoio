@@ -57,7 +57,7 @@ func (a *api) CreateInviteCode(ctx *gin.Context) {
 		})
 		return
 	}
-	code, err := a.srv.CreateInviteCode(user.ID)
+	code, expire, err := a.srv.CreateInviteCode(user.ID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, &request.Response{
 			Code:    http.StatusInternalServerError,
@@ -67,7 +67,10 @@ func (a *api) CreateInviteCode(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, &request.Response{
 		Code: http.StatusOK,
-		Data: code,
+		Data: &schema.InviteCode{
+			Code:   code,
+			Expire: expire,
+		},
 	})
 }
 

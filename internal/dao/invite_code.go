@@ -26,7 +26,7 @@ func (d *Dao) GetInviteCodeCnt(userId string) (int64, error) {
 	return cnt, nil
 }
 
-func (d *Dao) CreateInviteCode(nodeId int64, userId string, expire time.Duration) (string, error) {
+func (d *Dao) CreateInviteCode(nodeId int64, userId string, expire time.Duration) (string, int64, error) {
 	var (
 		now      = time.Now()
 		expireAt = now.Add(expire)
@@ -35,7 +35,7 @@ func (d *Dao) CreateInviteCode(nodeId int64, userId string, expire time.Duration
 	data := fmt.Sprintf("%d:%s:%d:%d:%d", nodeId, userId, now.Unix(), expireAt.Unix(), salt)
 	code, err := random.Generate62Str(data)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	obj := &schema.InviteCode{
 		Code:   code,
@@ -58,9 +58,9 @@ func (d *Dao) CreateInviteCode(nodeId int64, userId string, expire time.Duration
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	return code, nil
+	return code, obj.Expire, nil
 }
 
 func (d *Dao) CheckInviteCode(code string) bool {

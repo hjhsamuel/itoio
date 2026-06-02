@@ -85,13 +85,13 @@ func (c *Core) GetInviteCodeList(userId string, offset, limit int) ([]*schema.In
 	return c.d.GetInviteCodeList(userId, offset, limit)
 }
 
-func (c *Core) CreateInviteCode(userId string) (string, error) {
+func (c *Core) CreateInviteCode(userId string) (string, int64, error) {
 	cnt, err := c.d.GetInviteCodeCnt(userId)
 	if err != nil {
-		return "", errors.New("check invite code failed")
+		return "", 0, errors.New("check invite code failed")
 	}
 	if cnt >= 5 {
-		return "", errors.New("reached max invite code limit")
+		return "", 0, errors.New("reached max invite code limit")
 	}
 	return c.d.CreateInviteCode(c.id, userId, time.Hour*24*7)
 }

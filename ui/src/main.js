@@ -144,11 +144,18 @@ async function refreshSession() {
 function notice(text, tone = "info") {
   state.notices.unshift({ id: crypto.randomUUID(), text, tone });
   state.notices = state.notices.slice(0, 4);
-  render();
+  updateToasts();
   setTimeout(() => {
     state.notices = state.notices.filter((item) => item.text !== text);
-    render();
+    updateToasts();
   }, 4200);
+}
+
+function updateToasts() {
+  const container = document.querySelector(".toasts");
+  if (container) {
+    container.innerHTML = state.notices.map((n) => `<div class="toast ${n.tone}">${escapeHtml(n.text)}</div>`).join("");
+  }
 }
 
 function icon(name) {
@@ -174,8 +181,8 @@ function authView() {
         </div>
         <div class="auth-copy">
           <p class="eyebrow">P2P WebRTC Control Plane</p>
-          <h1>私有房间里的低延迟屏幕协同。</h1>
-          <p>登录后创建或加入房间，服务端只负责身份、房间和信令协调，音视频数据通过浏览器端到端连接传输。</p>
+          <h1>私有房间里的低延迟屏幕协同</h1>
+          <p>服务端只负责身份、房间和信令协调，音视频数据通过浏览器端到端连接传输</p>
         </div>
       </section>
       <section class="auth-panel">
@@ -296,7 +303,10 @@ function roomPage() {
     <div class="room-layout">
       <section class="room-stage">
         <header class="room-header">
-          <div class="room-id">${icon("video")}房间 ${escapeHtml(room.id)}</div>
+          <div class="room-id">
+            ${icon("video")}房间 ${escapeHtml(room.id)}
+            <button class="icon-button" data-copy="${escapeHtml(room.id)}" title="复制房间 ID" aria-label="复制房间 ID">${icon("copy")}</button>
+          </div>
           <div class="status-actions">
             <div class="status-pill ${state.webrtcStatus}">${icon("link")}${webrtcStatusText()}</div>
             <div class="status-pill ${state.wsStatus}">${icon("wifi")}${statusText()}</div>
@@ -496,7 +506,8 @@ function bindApp() {
   document.querySelector("#chat-form")?.addEventListener("submit", sendChat);
   document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("click", async () => {
     await navigator.clipboard.writeText(btn.dataset.copy);
-    notice("已复制邀请码", "success");
+    const label = btn.getAttribute("aria-label") || "内容";
+    notice(`已复制${label.includes("房间") ? "房间 ID" : "邀请码"}`, "success");
   }));
   const chatList = document.querySelector("#chat-list");
   if (chatList) chatList.scrollTop = chatList.scrollHeight;
@@ -851,8 +862,8 @@ function pushChat(data) {
 
 async function createInvite() {
   try {
-    const code = await api("/ito/admin/code", { method: "POST" });
-    state.invites.unshift(typeof code === "string" ? { code } : code);
+    const data = await api("/ito/admin/code", { method: "POST" });
+    state.invites.unshift(data);
     notice("邀请码已生成", "success");
     render();
   } catch (err) {
