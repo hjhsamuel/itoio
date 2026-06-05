@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 const state = {
   session: readSession(),
   authRoute: location.pathname === "/register" ? "register" : "login",
@@ -142,7 +144,7 @@ async function refreshSession() {
 }
 
 function notice(text, tone = "info") {
-  state.notices.unshift({ id: crypto.randomUUID(), text, tone });
+  state.notices.unshift({ id: uuidv4(), text, tone });
   state.notices = state.notices.slice(0, 4);
   updateToasts();
   setTimeout(() => {
