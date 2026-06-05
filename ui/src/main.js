@@ -464,6 +464,7 @@ function bindAuth() {
       const session = await api("/login", { method: "POST", body: JSON.stringify(data) });
       persistLogin(session);
       notice("登录成功", "success");
+      history.replaceState(null, "", "/");
       render();
       setTimeout(loadInvites, 0);
       setTimeout(connectSocket, 0);
@@ -967,6 +968,9 @@ if (state.session) {
   if (state.session.expire && state.session.expire <= Date.now()) {
     handleAuthFailure();
   } else {
+    if (location.pathname === "/login" || location.pathname === "/register") {
+      history.replaceState(null, "", "/");
+    }
     scheduleRefresh();
     setTimeout(loadInvites, 0);
     setTimeout(connectSocket, 0);

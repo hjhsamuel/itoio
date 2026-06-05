@@ -24,6 +24,7 @@ func Route(e *gin.Engine) {
 	e.StaticFS("/assets", httpFS)
 
 	e.NoRoute(func(ctx *gin.Context) {
+		ctx.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 		f, err := staticFS.Open("index.html")
 		if err != nil {
 			ctx.String(http.StatusNotFound, "not found")
