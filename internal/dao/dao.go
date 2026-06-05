@@ -36,7 +36,7 @@ func New(path string) (bool, *Dao, error) {
 	if path != ":memory:" {
 		if _, err := os.Stat(path); err != nil {
 			dir := filepath.Dir(path)
-			_ = os.MkdirAll(dir, os.ModeDir)
+			_ = os.MkdirAll(dir, os.ModePerm)
 			init = true
 		}
 	} else {
