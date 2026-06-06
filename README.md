@@ -35,7 +35,7 @@ npm run build
 From the project root, build the Go executable:
 
 ```bash
-go build -o ito cmd/*.go
+go build -o ./release/ito ./cmd/
 ```
 
 ## ⚙️ Configuration
@@ -49,7 +49,8 @@ Create a `config.yaml` file (default name) in the same directory as the executab
 ```yaml
 server:
   port: 5001
-  storage_path: "ito.db" # Use ":memory:" for in-memory storage
+  node: 1 # Snowflake node ID
+  storage_path: "data/ito.db" # Use ":memory:" for in-memory storage
   # tls_cert_file: "path/to/cert.pem"
   # tls_key_file: "path/to/key.pem"
 
@@ -68,10 +69,11 @@ log:
 
 All configuration options can be overridden using environment variables with the `ITOIO` prefix:
 
-- `ITOIO_SERVER|PORT`
-- `ITOIO_TURN|PUBLIC_IP`
-- `ITOIO_LOG|LEVEL`
-- (Use `|` as a separator for nested keys)
+- `ITOIO_SERVER_PORT`
+- `ITOIO_SERVER_NODE`
+- `ITOIO_TURN_PUBLICIP`
+- `ITOIO_LOG_LEVEL`
+- (Use `_` as a separator for nested keys)
 
 ## 🏃 Running the Server
 
