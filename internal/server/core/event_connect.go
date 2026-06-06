@@ -36,5 +36,8 @@ func (c *Core) iceConfig() *entities.IceConfig {
 			})
 		}
 	}
-	return &entities.IceConfig{IceServers: servers}
+	return &entities.IceConfig{
+		IceServers: servers,
+		Mode:       c.turnConfig.Mode,
+	}
 }

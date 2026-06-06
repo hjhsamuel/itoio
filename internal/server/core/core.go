@@ -8,8 +8,8 @@ import (
 
 	"github.com/hjhsamuel/itoio/config"
 	"github.com/hjhsamuel/itoio/internal/dao"
-	"github.com/hjhsamuel/itoio/internal/server/core/turn"
 	"github.com/hjhsamuel/itoio/internal/server/room"
+	"github.com/pion/turn/v5"
 )
 
 type Core struct {
@@ -20,7 +20,7 @@ type Core struct {
 	rooms            *room.RoomManager
 	client           map[string]*ConnBase
 	disconnectTimers map[string]*time.Timer
-	turn             *turn.TurnServer
+	turn             *TurnServer
 	turnConfig       config.TurnConfig
 
 	read chan *ConnMessage
@@ -32,7 +32,10 @@ type Core struct {
 
 func (c *Core) Start(conf *config.Config) error {
 	c.turnConfig = conf.Turn
-	c.turn = turn.NewTurnServer(conf.Turn)
+	c.turn = NewTurnServer(conf.Turn)
+	if conf.Turn.Mode == config.TurnModeTurn {
+		c.turn.SetAuthHandler(c.turnAuthHandler)
+	}
 	if err := c.turn.Start(); err != nil {
 		return err
 	}
@@ -54,6 +57,15 @@ func (c *Core) Start(conf *config.Config) error {
 	c.wg.Add(1)
 	go c.do()
 	return nil
+}
+
+func (c *Core) turnAuthHandler(ra *turn.RequestAttributes) (string, []byte, bool) {
+	user, err := c.d.GetUserByName(ra.Username)
+	if err != nil {
+		return "", nil, false
+	}
+	key := turn.GenerateAuthKey(user.Name, c.turnConfig.Realm, user.Password)
+	return ra.Username, key, true
 }
 
 func (c *Core) Close() error {

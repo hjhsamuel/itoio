@@ -1,5 +1,3 @@
-import { v4 as uuidv4 } from "https://cdn.jsdelivr.net/npm/uuid@9.0.1/+esm";
-
 const state = {
   session: readSession(),
   authRoute: location.pathname === "/register" ? "register" : "login",
@@ -12,6 +10,8 @@ const state = {
   manualSocketClose: false,
   reconnectAttempts: 0,
   iceServers: [],
+  iceMode: "stun",
+  relayFallbackPeers: new Set(),
   peerStates: new Map(),
   stream: null,
   peers: new Map(),
@@ -144,7 +144,7 @@ async function refreshSession() {
 }
 
 function notice(text, tone = "info") {
-  state.notices.unshift({ id: uuidv4(), text, tone });
+  state.notices.unshift({ id: crypto.randomUUID(), text, tone });
   state.notices = state.notices.slice(0, 4);
   updateToasts();
   setTimeout(() => {
@@ -597,6 +597,7 @@ function cleanupRoom() {
   state.room = null;
   state.chat = [];
   state.peerStates.clear();
+  state.relayFallbackPeers.clear();
   state.webrtcStatus = "offline";
   state.page = "rooms";
   render();
@@ -606,6 +607,7 @@ async function handleSignal(message) {
   const { type, data } = message;
   if (type === "ice_config") {
     state.iceServers = Array.isArray(data?.ice_servers) ? data.ice_servers : [];
+    state.iceMode = data?.mode || "stun";
     return;
   }
   if (type === "enter") {
@@ -678,15 +680,24 @@ function stopShare() {
   state.dataChannels.clear();
   state.remoteStreams.clear();
   state.peerStates.clear();
+  state.relayFallbackPeers.clear();
   state.webrtcStatus = "offline";
   render();
 }
 
-async function ensurePeer(id, initiator = false) {
+async function ensurePeer(id, initiator = false, forceRelay = false) {
   let peer = state.peers.get(id);
-  const existed = !!peer;
+  let existed = !!peer;
+  if (peer && peer.__itoioRelay !== forceRelay) {
+    closePeer(id);
+    peer = null;
+    existed = false;
+  }
   if (!peer) {
-    peer = new RTCPeerConnection({ iceServers: state.iceServers });
+    const options = { iceServers: state.iceServers };
+    if (forceRelay) options.iceTransportPolicy = "relay";
+    peer = new RTCPeerConnection(options);
+    peer.__itoioRelay = forceRelay;
     state.peers.set(id, peer);
     state.peerStates.set(id, "connecting");
     updateWebrtcStatus();
@@ -702,12 +713,11 @@ async function ensurePeer(id, initiator = false) {
       render();
     };
     peer.onicecandidate = (event) => {
-      if (event.candidate) sendSignal(id, "candidate", event.candidate);
+      if (event.candidate) sendSignal(id, "candidate", event.candidate, { relay: peer.__itoioRelay });
     };
     peer.onconnectionstatechange = () => {
       if (["failed", "disconnected", "closed"].includes(peer.connectionState)) {
-        state.peerStates.set(id, "failed");
-        updateWebrtcStatus();
+        handlePeerFailure(id, peer);
       }
     };
     peer.oniceconnectionstatechange = () => {
@@ -736,30 +746,58 @@ async function ensurePeer(id, initiator = false) {
   if (initiator && (!existed || tracksAdded)) {
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
-    sendSignal(id, "offer", offer);
+    sendSignal(id, "offer", offer, { relay: peer.__itoioRelay });
   }
   return peer;
 }
 
 async function receivePeerSignal(type, payload) {
   const from = payload.from;
-  const peer = await ensurePeer(from, false);
+  const wantsRelay = payload.relay === true;
+  const peer = await ensurePeer(from, false, wantsRelay);
   if (type === "offer") {
     await peer.setRemoteDescription(payload.data);
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
-    sendSignal(from, "answer", answer);
+    sendSignal(from, "answer", answer, { relay: peer.__itoioRelay });
   } else if (type === "answer") {
+    if ((payload.relay === true) !== peer.__itoioRelay) return;
     await peer.setRemoteDescription(payload.data);
   } else if (type === "candidate") {
+    if ((payload.relay === true) !== peer.__itoioRelay) return;
     await peer.addIceCandidate(payload.data);
   }
+}
+
+function closePeer(id) {
+  state.peers.get(id)?.close();
+  state.peers.delete(id);
+  state.dataChannels.get(id)?.close();
+  state.dataChannels.delete(id);
+}
+
+function handlePeerFailure(id, peer) {
+  if (state.peers.get(id) !== peer) return;
+  if (state.iceMode === "turn" && !peer.__itoioRelay && !state.relayFallbackPeers.has(id) && currentUser()?.owner) {
+    state.relayFallbackPeers.add(id);
+    state.peerStates.set(id, "connecting");
+    updateWebrtcStatus();
+    closePeer(id);
+    ensurePeer(id, true, true).catch((err) => {
+      console.error("Could not switch WebRTC peer to TURN relay", err);
+      state.peerStates.set(id, "failed");
+      updateWebrtcStatus();
+    });
+    return;
+  }
+  state.peerStates.set(id, "failed");
+  updateWebrtcStatus();
 }
 
 async function updatePeerHolePunchStatus(id, peer) {
   if (!["connected", "completed"].includes(peer.iceConnectionState)) {
     if (["failed", "disconnected", "closed"].includes(peer.iceConnectionState)) {
-      state.peerStates.set(id, "failed");
+      handlePeerFailure(id, peer);
     } else {
       state.peerStates.set(id, "connecting");
     }
@@ -792,7 +830,7 @@ function updateWebrtcStatus() {
   const peerStatuses = Array.from(state.peerStates.values());
   if (!state.room || remoteUserCount === 0) {
     state.webrtcStatus = "offline";
-  } else if (peerStatuses.filter((status) => status === "direct").length === remoteUserCount) {
+  } else if (peerStatuses.filter((status) => status === "direct" || status === "relay").length === remoteUserCount) {
     state.webrtcStatus = "online";
   } else if (peerStatuses.includes("connecting")) {
     state.webrtcStatus = "connecting";
@@ -802,10 +840,10 @@ function updateWebrtcStatus() {
   render();
 }
 
-function sendSignal(to, typ, data) {
+function sendSignal(to, typ, data, options = {}) {
   state.socket?.send(JSON.stringify({
     type: typ,
-    data: { from: state.session.id, to, typ, data }
+    data: { from: state.session.id, to, typ, data, ...options }
   }));
 }
 
@@ -942,6 +980,8 @@ function logout(options = {}) {
   state.chat = [];
   state.peerStates.clear();
   state.iceServers = [];
+  state.iceMode = "stun";
+  state.relayFallbackPeers.clear();
   state.reconnectAttempts = 0;
   state.page = "rooms";
   state.wsStatus = "offline";

@@ -50,6 +50,7 @@ type IceServer struct {
 
 type IceConfig struct {
 	IceServers []*IceServer `json:"ice_servers"`
+	Mode       string       `json:"mode"`
 }
 
 func (c *IceConfig) Type() string {

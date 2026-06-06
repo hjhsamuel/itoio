@@ -10,8 +10,7 @@ import (
 )
 
 const (
-	envPrefix    = "ITOIO"
-	envSplitChar = "|"
+	envPrefix = "ITOIO"
 )
 
 const (
@@ -27,15 +26,15 @@ type Config struct {
 
 type ServerConfig struct {
 	Node        int64  `yaml:"node" env:"NODE"`
-	TLSCertFile string `yaml:"tls_cert_file" env:"TLS_CERT_FILE"`
-	TLSKeyFile  string `yaml:"tls_key_file" env:"TLS_KEY_FILE"`
+	TLSCertFile string `yaml:"tls_cert_file" env:"TLSCERTFILE"`
+	TLSKeyFile  string `yaml:"tls_key_file" env:"TLSKEYFILE"`
 	Port        int    `yaml:"port" env:"PORT"` // http server port
-	StoragePath string `yaml:"storage_path" env:"STORAGE_PATH"`
+	StoragePath string `yaml:"storage_path" env:"STORAGEPATH"`
 }
 
 type TurnConfig struct {
 	Port     int    `yaml:"port" env:"PORT"` // eg. 3478
-	PublicIP string `yaml:"public_ip" env:"PUBLIC_IP"`
+	PublicIP string `yaml:"public_ip" env:"PUBLICIP"`
 	Realm    string `yaml:"realm" env:"REALM"`
 	Mode     string `yaml:"mode" env:"MODE"`
 }
@@ -77,7 +76,7 @@ func Init(path string) error {
 			return err
 		}
 	} else {
-		parser := goenv.NewEnvParser(goenv.WithPrefix(envPrefix), goenv.WithSplitChar(envSplitChar))
+		parser := goenv.NewEnvParser(goenv.WithPrefix(envPrefix))
 		if err = parser.Start(&gConf); err != nil {
 			return err
 		}

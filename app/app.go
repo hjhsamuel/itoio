@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -61,8 +62,11 @@ func Start(path string) error {
 				},
 			}
 			_ = httpServer.ListenAndServeTLS(conf.Server.TLSCertFile, conf.Server.TLSKeyFile)
+			logrus.Infof("TLS enabled, listening on %s", httpServer.Addr)
 		} else {
+			fmt.Println("Working at development mode, only worked for localhost")
 			_ = httpServer.ListenAndServe()
+			logrus.Infof("TLS disabled, listening on %s", httpServer.Addr)
 		}
 	}()
 
