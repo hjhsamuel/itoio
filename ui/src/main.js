@@ -694,7 +694,11 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
     existed = false;
   }
   if (!peer) {
-    const options = { iceServers: state.iceServers };
+    const options = {
+      iceServers: state.iceServers,
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require"
+    };
     if (forceRelay) options.iceTransportPolicy = "relay";
     peer = new RTCPeerConnection(options);
     peer.__itoioRelay = forceRelay;
@@ -709,6 +713,9 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
     };
     peer.ontrack = (event) => {
       const stream = event.streams[0] || new MediaStream([event.track]);
+      if (event.track.kind === "video" && "playoutDelayHint" in event.track) {
+        event.track.playoutDelayHint = 0;
+      }
       state.remoteStreams.set(id, stream);
       render();
     };
@@ -732,6 +739,7 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
       if (!senders.some((s) => s.track === track)) {
         const sender = peer.addTrack(track, state.stream);
         if (track.kind === "video") {
+          track.contentHint = "motion";
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
           params.encodings[0].maxBitrate = 2000000;
@@ -744,11 +752,62 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
   }
 
   if (initiator && (!existed || tracksAdded)) {
-    const offer = await peer.createOffer();
+    let offer = await peer.createOffer();
+    if (offer.sdp) {
+      offer = {
+        type: offer.type,
+        sdp: optimizeSDP(offer.sdp)
+      };
+    }
     await peer.setLocalDescription(offer);
     sendSignal(id, "offer", offer, { relay: peer.__itoioRelay });
   }
   return peer;
+}
+
+function optimizeSDP(sdp) {
+  if (!sdp) return sdp;
+  // Prefer H264 if available for lower latency hardware decoding
+  const lines = sdp.split("\r\n");
+  let videoMLineIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith("m=video")) {
+      videoMLineIndex = i;
+      break;
+    }
+  }
+
+  if (videoMLineIndex !== -1) {
+    const mLine = lines[videoMLineIndex];
+    const parts = mLine.split(" ");
+    const payloads = parts.slice(3);
+    const h264Payloads = [];
+    const otherPayloads = [];
+
+    for (const pt of payloads) {
+      const rtpmap = lines.find(l => l.startsWith(`a=rtpmap:${pt} H264/90000`));
+      if (rtpmap) h264Payloads.push(pt);
+      else otherPayloads.push(pt);
+    }
+
+    if (h264Payloads.length > 0) {
+      parts.splice(3, parts.length - 3, ...h264Payloads, ...otherPayloads);
+      lines[videoMLineIndex] = parts.join(" ");
+    }
+  }
+
+  return lines.join("\r\n")
+    .replace(/a=fmtp:(\d+) (.*)/g, (match, pt, params) => {
+      if (params.indexOf("x-google-min-bitrate") === -1) {
+        return `a=fmtp:${pt} ${params};x-google-min-bitrate=500;x-google-max-bitrate=2000;x-google-start-bitrate=1000`;
+      }
+      return match;
+    })
+    .replace(/a=mid:(.*)/g, (match) => {
+      return `${match}\r\na=extmap-allow-mixed`;
+    })
+    .replace(/a=rtcp-fb:(\d+) nack\r\n/g, "")
+    .replace(/a=rtcp-fb:(\d+) nack pli\r\n/g, "a=rtcp-fb:$1 nack pli\r\na=rtcp-fb:$1 goog-remb\r\n");
 }
 
 async function receivePeerSignal(type, payload) {
@@ -757,7 +816,13 @@ async function receivePeerSignal(type, payload) {
   const peer = await ensurePeer(from, false, wantsRelay);
   if (type === "offer") {
     await peer.setRemoteDescription(payload.data);
-    const answer = await peer.createAnswer();
+    let answer = await peer.createAnswer();
+    if (answer.sdp) {
+      answer = {
+        type: answer.type,
+        sdp: optimizeSDP(answer.sdp)
+      };
+    }
     await peer.setLocalDescription(answer);
     sendSignal(from, "answer", answer, { relay: peer.__itoioRelay });
   } else if (type === "answer") {
