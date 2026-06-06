@@ -454,7 +454,8 @@ function bindAuth() {
   });
   document.querySelector("#auth-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const data = Object.fromEntries(new FormData(event.currentTarget));
+    const form = event.currentTarget;
+    const data = Object.fromEntries(new FormData(form));
     try {
       if (state.authRoute === "register") {
         await api("/register", { method: "POST", body: JSON.stringify(data) });
@@ -989,10 +990,11 @@ async function loadInvites() {
 
 async function updatePassword(event) {
   event.preventDefault();
-  const data = Object.fromEntries(new FormData(event.currentTarget));
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form));
   try {
     await api("/ito/admin/passwd", { method: "PUT", body: JSON.stringify(data) });
-    event.currentTarget.reset();
+    form.reset();
     notice("密码已更新", "success");
   } catch (err) {
     notice(err.message, "error");
