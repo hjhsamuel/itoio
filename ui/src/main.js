@@ -20,7 +20,8 @@ const state = {
   chat: [],
   notices: [],
   wsStatus: "offline",
-  webrtcStatus: "offline"
+  webrtcStatus: "offline",
+  isFullscreen: false
 };
 
 const app = document.querySelector("#app");
@@ -45,7 +46,8 @@ const icons = {
   users: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>',
   video: '<svg viewBox="0 0 24 24"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>',
   wifi: '<svg viewBox="0 0 24 24"><path d="M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0"/><path d="M12 20h.01"/></svg>',
-  maximize: '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>'
+  maximize: '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
+  minimize: '<svg viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>'
 };
 
 function readSession() {
@@ -221,7 +223,8 @@ function shell() {
   const inRoom = state.page === "room" && state.room;
   return `
     <main class="app-shell ${inRoom ? "in-room" : ""}">
-      <aside class="sidebar">
+      <button class="sidebar-toggle" id="toggle-sidebar" aria-label="切换菜单">${icon("settings")}</button>
+      <aside class="sidebar" id="app-sidebar">
         <div class="brand-mark">${icon("link")}<span>itoio</span></div>
         <nav>
           <button class="nav-item ${state.page === "rooms" ? "active" : ""}" data-page="rooms">${icon("video")}房间管理</button>
@@ -352,7 +355,9 @@ function videoTiles() {
     <div class="video-tile">
       <video data-peer="${escapeHtml(id)}" autoplay playsinline></video>
       <div class="tile-label">${escapeHtml(peerName(id))}</div>
-      <button class="fullscreen-btn" title="全屏" onclick="this.closest('.video-tile').requestFullscreen()">${icon("maximize")}</button>
+      <button class="fullscreen-btn" title="${state.isFullscreen ? "退出全屏" : "全屏"}" data-fullscreen>
+        ${icon(state.isFullscreen ? "minimize" : "maximize")}
+      </button>
     </div>
   `).join("");
 
@@ -360,7 +365,9 @@ function videoTiles() {
     <div class="video-tile local">
       <video id="local-video" autoplay muted playsinline></video>
       <div class="tile-label">本地共享</div>
-      <button class="fullscreen-btn" title="全屏" onclick="this.closest('.video-tile').requestFullscreen()">${icon("maximize")}</button>
+      <button class="fullscreen-btn" title="${state.isFullscreen ? "退出全屏" : "全屏"}" data-fullscreen>
+        ${icon(state.isFullscreen ? "minimize" : "maximize")}
+      </button>
     </div>
   ` : "";
 
@@ -479,6 +486,27 @@ function bindAuth() {
 }
 
 function bindApp() {
+  const sidebar = document.querySelector("#app-sidebar");
+  const onFullscreenChange = () => {
+    state.isFullscreen = !!document.fullscreenElement;
+    if (state.isFullscreen && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      screen.orientation?.lock?.("landscape").catch(() => {});
+    } else {
+      try { screen.orientation?.unlock?.(); } catch (e) {}
+    }
+
+    // 更新所有全屏按钮的状态，而不重新渲染整个页面
+    document.querySelectorAll("[data-fullscreen]").forEach((btn) => {
+      btn.title = state.isFullscreen ? "退出全屏" : "全屏";
+      btn.innerHTML = icon(state.isFullscreen ? "minimize" : "maximize");
+      bindCommon(); // 确保图标样式正确
+    });
+  };
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+
+  document.querySelector("#toggle-sidebar")?.addEventListener("click", () => {
+    sidebar?.classList.toggle("open");
+  });
   document.querySelector("#logout")?.addEventListener("click", logout);
   document.querySelectorAll("[data-page]").forEach((item) => {
     item.addEventListener("click", () => {
@@ -488,6 +516,7 @@ function bindApp() {
         return;
       }
       state.page = next;
+      sidebar?.classList.remove("open");
       render();
     });
   });
@@ -509,6 +538,17 @@ function bindApp() {
   document.querySelector("#refresh-invites")?.addEventListener("click", loadInvites);
   document.querySelector("#password-form")?.addEventListener("submit", updatePassword);
   document.querySelector("#chat-form")?.addEventListener("submit", sendChat);
+  document.querySelectorAll("[data-fullscreen]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tile = btn.closest(".video-tile");
+      if (!tile) return;
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        tile.requestFullscreen().catch(() => {});
+      }
+    });
+  });
   document.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("click", async () => {
     await navigator.clipboard.writeText(btn.dataset.copy);
     const label = btn.getAttribute("aria-label") || "内容";
