@@ -18,11 +18,11 @@ func (e *EventConnect) Execute(c *Core, info *ConnBase) error {
 		c.cancelDisconnectTimer(info.ID)
 		c.roomInfoChanged(roomObj)
 	}
-	Write(info.Write, c.iceConfig())
+	Write(info.Write, c.iceConfig(info.ID))
 	return nil
 }
 
-func (c *Core) iceConfig() *entities.IceConfig {
+func (c *Core) iceConfig(userID string) *entities.IceConfig {
 	host := c.turnConfig.PublicIP
 	port := c.turnConfig.Port
 	servers := []*entities.IceServer{}
@@ -31,8 +31,11 @@ func (c *Core) iceConfig() *entities.IceConfig {
 			URLs: []string{fmt.Sprintf("stun:%s:%d", host, port)},
 		})
 		if c.turnConfig.Mode == config.TurnModeTurn {
+			username := turnUsername(userID)
 			servers = append(servers, &entities.IceServer{
-				URLs: []string{fmt.Sprintf("turn:%s:%d", host, port)},
+				URLs:       []string{fmt.Sprintf("turn:%s:%d", host, port)},
+				Username:   username,
+				Credential: turnCredential(username),
 			})
 		}
 	}

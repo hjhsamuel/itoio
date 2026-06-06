@@ -2,11 +2,17 @@ package core
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/hjhsamuel/itoio/config"
+	"github.com/hjhsamuel/itoio/internal/common"
 	"github.com/hjhsamuel/itoio/internal/dao"
 	"github.com/hjhsamuel/itoio/internal/server/room"
 	"github.com/pion/turn/v5"
@@ -60,12 +66,33 @@ func (c *Core) Start(conf *config.Config) error {
 }
 
 func (c *Core) turnAuthHandler(ra *turn.RequestAttributes) (string, []byte, bool) {
-	user, err := c.d.GetUserByName(ra.Username)
-	if err != nil {
+	expire, userID, ok := strings.Cut(ra.Username, ":")
+	if !ok {
 		return "", nil, false
 	}
-	key := turn.GenerateAuthKey(user.Name, c.turnConfig.Realm, user.Password)
+	expireAt, err := strconv.ParseInt(expire, 10, 64)
+	if err != nil || time.Now().Unix() > expireAt {
+		return "", nil, false
+	}
+	if c.d == nil {
+		return "", nil, false
+	}
+	if _, err = c.d.GetUserByID(userID); err != nil {
+		return "", nil, false
+	}
+	credential := turnCredential(ra.Username)
+	key := turn.GenerateAuthKey(ra.Username, c.turnConfig.Realm, credential)
 	return ra.Username, key, true
+}
+
+func turnCredential(username string) string {
+	mac := hmac.New(sha1.New, []byte(common.JwtSalt))
+	_, _ = mac.Write([]byte(username))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func turnUsername(userID string) string {
+	return fmt.Sprintf("%d:%s", time.Now().Add(common.JwtExp).Unix(), userID)
 }
 
 func (c *Core) Close() error {
