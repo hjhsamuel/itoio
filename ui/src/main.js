@@ -426,6 +426,7 @@ function accountPanel() {
       <form id="password-form" class="stack">
         ${field("old", "当前密码", "password", "输入当前密码")}
         ${field("new", "新密码", "password", "包含大小写、数字和特殊字符，长度不低于8位")}
+        ${field("confirm", "确认新密码", "password", "再次输入新密码")}
         <button class="primary" type="submit">${icon("lock")}更新密码</button>
       </form>
     </section>
@@ -992,6 +993,10 @@ async function updatePassword(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form));
+  if (data.new !== data.confirm) {
+    notice("两次输入的密码不一致", "error");
+    return;
+  }
   try {
     await api("/ito/admin/passwd", { method: "PUT", body: JSON.stringify(data) });
     form.reset();
