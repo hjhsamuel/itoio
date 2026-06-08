@@ -488,7 +488,7 @@ function bindAuth() {
 function bindApp() {
   const sidebar = document.querySelector("#app-sidebar");
   const onFullscreenChange = () => {
-    state.isFullscreen = !!document.fullscreenElement;
+    state.isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
     if (state.isFullscreen && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
       screen.orientation?.lock?.("landscape").catch(() => {});
     } else {
@@ -503,6 +503,7 @@ function bindApp() {
     });
   };
   document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 
   document.querySelector("#toggle-sidebar")?.addEventListener("click", () => {
     sidebar?.classList.toggle("open");
@@ -542,10 +543,19 @@ function bindApp() {
     btn.addEventListener("click", () => {
       const tile = btn.closest(".video-tile");
       if (!tile) return;
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
+      const video = tile.querySelector("video");
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
       } else {
-        tile.requestFullscreen().catch(() => {});
+        // 在 iOS Safari 中，video 元素有自己的 webkitEnterFullscreen 方法
+        if (tile.requestFullscreen) {
+          tile.requestFullscreen().catch(() => {});
+        } else if (tile.webkitRequestFullscreen) {
+          tile.webkitRequestFullscreen().catch(() => {});
+        } else if (video && video.webkitEnterFullscreen) {
+          video.webkitEnterFullscreen();
+        }
       }
     });
   });
@@ -636,6 +646,10 @@ function leaveRoom() {
 
 function cleanupRoom() {
   stopShare();
+  state.peers.forEach((peer, id) => closePeer(id));
+  state.peers.clear();
+  state.dataChannels.clear();
+  state.remoteStreams.clear();
   state.room = null;
   state.chat = [];
   state.peerStates.clear();
@@ -684,9 +698,9 @@ async function startShare() {
   try {
     const display = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        width: { max: 1920 },
-        height: { max: 1080 },
-        frameRate: { max: 60 }
+        width: { max: 1920, min: 1280 },
+        height: { max: 1080, min: 720 },
+        frameRate: { max: 60, min: 30 }
       },
       audio: true
     });
@@ -721,13 +735,15 @@ function stopShare() {
   for (const user of targets) {
     sendSignal(user.id, "stop_share", {});
   }
-  state.peers.forEach((peer) => peer.close());
-  state.peers.clear();
-  state.dataChannels.clear();
-  state.remoteStreams.clear();
-  state.peerStates.clear();
-  state.relayFallbackPeers.clear();
-  state.webrtcStatus = "offline";
+  // 不再关闭连接，而是保持连接以便下次 replaceTrack
+  state.peers.forEach((peer) => {
+    peer.getSenders().forEach(sender => {
+      if (sender.track) {
+        sender.track.stop();
+        sender.replaceTrack(null).catch(() => {});
+      }
+    });
+  });
   render();
 }
 
@@ -764,6 +780,14 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
       }
       state.remoteStreams.set(id, stream);
       render();
+
+      // 监听 track 的 ended 事件，以便在流停止时清理 UI
+      event.track.addEventListener("ended", () => {
+        if (state.remoteStreams.get(id) === stream) {
+          state.remoteStreams.delete(id);
+          render();
+        }
+      });
     };
     peer.onicecandidate = (event) => {
       if (event.candidate) sendSignal(id, "candidate", event.candidate, { relay: peer.__itoioRelay });
@@ -779,10 +803,17 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
   }
 
   let tracksAdded = false;
+  let tracksReplaced = false;
   if (state.stream) {
     const senders = peer.getSenders();
     state.stream.getTracks().forEach((track) => {
-      if (!senders.some((s) => s.track === track)) {
+      const existingSender = senders.find((s) => s.track?.kind === track.kind);
+      if (existingSender) {
+        if (existingSender.track !== track) {
+          existingSender.replaceTrack(track).catch(e => console.error("replaceTrack failed", e));
+          tracksReplaced = true;
+        }
+      } else {
         const sender = peer.addTrack(track, state.stream);
         if (track.kind === "video") {
           track.contentHint = "motion";
@@ -797,7 +828,7 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
     });
   }
 
-  if (initiator && (!existed || tracksAdded)) {
+  if (initiator && (!existed || tracksAdded || (tracksReplaced && peer.signalingState === "stable"))) {
     let offer = await peer.createOffer();
     if (offer.sdp) {
       offer = {
@@ -861,7 +892,7 @@ async function receivePeerSignal(type, payload) {
   const wantsRelay = payload.relay === true;
 
   if (type === "stop_share") {
-    closePeer(from);
+    // 收到停止分享信号后，不需要关闭 peer，只需要清理远程流并重绘
     state.remoteStreams.delete(from);
     render();
     return;
