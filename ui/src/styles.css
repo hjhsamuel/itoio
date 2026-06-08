@@ -553,7 +553,8 @@ nav {
 .room-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .room-stage {
@@ -612,7 +613,8 @@ nav {
 .chat-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  min-height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
   border-left: 1px solid var(--line);
   background: rgba(12, 16, 22, 0.9);
 }
