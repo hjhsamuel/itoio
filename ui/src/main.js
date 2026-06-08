@@ -698,9 +698,9 @@ async function startShare() {
   try {
     const display = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        width: { max: 1920, min: 1280 },
-        height: { max: 1080, min: 720 },
-        frameRate: { max: 60, min: 30 }
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 60 }
       },
       audio: true
     });
