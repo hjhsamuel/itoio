@@ -94,11 +94,12 @@ func (c *WebSocketConn) switchEvent(m []byte) (Event, error) {
 	}
 	var event Event
 	switch req.Type {
-	case EventTypeOffer, EventTypeAnswer, EventTypeCandidate:
+	case EventTypeOffer, EventTypeAnswer, EventTypeCandidate, EventTypeStopShare:
 		var obj *EventSignaling
 		if err := json.Unmarshal(req.Data, &obj); err != nil {
 			return nil, err
 		}
+		obj.Typ = req.Type
 		event = obj
 	case EventTypeCreate:
 		var obj *EventCreate

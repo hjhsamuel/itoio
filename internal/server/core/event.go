@@ -10,6 +10,8 @@ const (
 	EventTypeCreate = "create"
 	EventTypeJoin   = "join"
 	EventTypeLeave  = "leave"
+
+	EventTypeStopShare = "stop_share"
 )
 
 type Request struct {

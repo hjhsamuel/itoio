@@ -675,7 +675,7 @@ async function handleSignal(message) {
     notice(data?.reason || "房间已关闭", "error");
     return;
   }
-  if (["offer", "answer", "candidate"].includes(type)) {
+  if (["offer", "answer", "candidate", "stop_share"].includes(type)) {
     await receivePeerSignal(type, data);
   }
 }
@@ -716,6 +716,10 @@ function stopShare() {
   if (state.stream) {
     state.stream.getTracks().forEach((track) => track.stop());
     state.stream = null;
+  }
+  const targets = (state.room?.users || []).filter((u) => !u.owner && u.id !== state.session.id);
+  for (const user of targets) {
+    sendSignal(user.id, "stop_share", {});
   }
   state.peers.forEach((peer) => peer.close());
   state.peers.clear();
@@ -855,8 +859,21 @@ function optimizeSDP(sdp) {
 async function receivePeerSignal(type, payload) {
   const from = payload.from;
   const wantsRelay = payload.relay === true;
+
+  if (type === "stop_share") {
+    closePeer(from);
+    state.remoteStreams.delete(from);
+    render();
+    return;
+  }
+
   const peer = await ensurePeer(from, false, wantsRelay);
   if (type === "offer") {
+    if (peer.signalingState !== "stable") {
+      console.warn("Peer signaling state is not stable, resetting connection", peer.signalingState);
+      closePeer(from);
+      return receivePeerSignal(type, payload);
+    }
     await peer.setRemoteDescription(payload.data);
     let answer = await peer.createAnswer();
     if (answer.sdp) {
