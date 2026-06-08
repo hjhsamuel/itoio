@@ -2,7 +2,9 @@ package room
 
 import (
 	"errors"
+	"time"
 
+	"github.com/hjhsamuel/itoio/internal/common"
 	"github.com/hjhsamuel/itoio/internal/entities"
 	"github.com/hjhsamuel/itoio/pkg/snowflake"
 )
@@ -30,8 +32,19 @@ func (m *RoomManager) CreateRoom(secret string, user *RoomUser) (string, error) 
 		return "", errors.New("user already in a room")
 	}
 
-	id := m.gen.Generate()
-	roomId := id.Base58()
+	var roomId string
+	for i := 0; i < 3; i++ {
+		id := m.gen.Generate()
+		roomId = id.Base58Unpredictable([]byte(common.RoomIdSalt))
+		if _, ok := m.Rooms[roomId]; ok {
+			time.Sleep(10 * time.Microsecond)
+			continue
+		}
+		break
+	}
+	if roomId == "" {
+		return "", errors.New("create room failed, please try again later")
+	}
 
 	room, err := NewRoom(roomId, secret, user)
 	if err != nil {

@@ -42,6 +42,8 @@ go build -o ./release/ito ./cmd/
 
 `itoio` can be configured using a YAML file or environment variables.
 
+> **Note**: Features like screen sharing require a secure context (HTTPS). When TLS certificates (`tls_cert_file` and `tls_key_file`) are not configured, these features will be restricted and can only be used for local testing.
+
 ### YAML Configuration
 
 Create a `config.yaml` file (default name) in the same directory as the executable:
@@ -83,10 +85,12 @@ Start the server using the `server` command:
 ./ito server -c config.yaml
 ```
 
-On the first run, `itoio` will initialize an administrator account and print the credentials to the console:
+On the first run, `itoio` will initialize an administrator account and print the credentials to the console. **Please change the password as soon as possible.**
 ```text
 Initialized first user: admin/<random-password>
 ```
+
+> **Note**: An `admin` account is automatically created on the first run. Please change the password as soon as possible.
 
 ## 🏗️ Project Structure
 

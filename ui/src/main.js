@@ -186,7 +186,7 @@ function authView() {
         <div class="auth-copy">
           <p class="eyebrow">P2P WebRTC Control Plane</p>
           <h1>私有房间里的低延迟屏幕协同</h1>
-          <p>服务端只负责身份、房间和信令协调，音视频数据通过浏览器端到端连接传输</p>
+          <p>服务端负责身份、房间和信令协调，音视频数据优先通过浏览器端到端连接传输</p>
         </div>
       </section>
       <section class="auth-panel">

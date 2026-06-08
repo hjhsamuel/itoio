@@ -1,6 +1,7 @@
 package snowflake
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -228,16 +229,17 @@ func ParseBase36(id string) (ID, error) {
 // Base58 returns a base58 string of the snowflake ID
 func (f ID) Base58() string {
 
-	if f < 58 {
-		return string(encodeBase58Map[f])
+	val := uint64(f)
+	if val < 58 {
+		return string(encodeBase58Map[val])
 	}
 
 	b := make([]byte, 0, 11)
-	for f >= 58 {
-		b = append(b, encodeBase58Map[f%58])
-		f /= 58
+	for val >= 58 {
+		b = append(b, encodeBase58Map[val%58])
+		val /= 58
 	}
-	b = append(b, encodeBase58Map[f])
+	b = append(b, encodeBase58Map[val])
 
 	for x, y := 0, len(b)-1; x < y; x, y = x+1, y-1 {
 		b[x], b[y] = b[y], b[x]
@@ -249,13 +251,13 @@ func (f ID) Base58() string {
 // ParseBase58 parses a base58 []byte into a snowflake ID
 func ParseBase58(b []byte) (ID, error) {
 
-	var id int64
+	var id uint64
 
 	for i := range b {
 		if decodeBase58Map[b[i]] == 0xFF {
 			return -1, ErrInvalidBase58
 		}
-		id = id*58 + int64(decodeBase58Map[b[i]])
+		id = id*58 + uint64(decodeBase58Map[b[i]])
 	}
 
 	return ID(id), nil
@@ -284,6 +286,37 @@ func (f ID) IntBytes() [8]byte {
 // a snowflake ID
 func ParseIntBytes(id [8]byte) ID {
 	return ID(int64(binary.BigEndian.Uint64(id[:])))
+}
+
+// Base58Unpredictable returns an unpredictable base58 string of the snowflake ID.
+// It uses SHA-256 with a salt to ensure that even sequential IDs result in
+// very different and unpredictable strings.
+func (f ID) Base58Unpredictable(salt []byte) string {
+	h := sha256.New()
+	h.Write(salt)
+	h.Write([]byte(f.String()))
+	sum := h.Sum(nil)
+
+	// Use the first 8 bytes of the hash to create a uint64
+	val := binary.BigEndian.Uint64(sum[:8])
+
+	// Standard base58 encoding of the hashed value
+	if val < 58 {
+		return string(encodeBase58Map[val])
+	}
+
+	b := make([]byte, 0, 11)
+	for val >= 58 {
+		b = append(b, encodeBase58Map[val%58])
+		val /= 58
+	}
+	b = append(b, encodeBase58Map[val])
+
+	for x, y := 0, len(b)-1; x < y; x, y = x+1, y-1 {
+		b[x], b[y] = b[y], b[x]
+	}
+
+	return string(b)
 }
 
 // MarshalJSON returns a json byte array string of the snowflake ID.
