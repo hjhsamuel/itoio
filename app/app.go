@@ -61,12 +61,12 @@ func Start(path string) error {
 					tls.TLS_FALLBACK_SCSV,
 				},
 			}
-			_ = httpServer.ListenAndServeTLS(conf.Server.TLSCertFile, conf.Server.TLSKeyFile)
 			logrus.Infof("TLS enabled, listening on %s", httpServer.Addr)
+			_ = httpServer.ListenAndServeTLS(conf.Server.TLSCertFile, conf.Server.TLSKeyFile)
 		} else {
 			fmt.Println("Working at development mode, only worked for localhost")
-			_ = httpServer.ListenAndServe()
 			logrus.Infof("TLS disabled, listening on %s", httpServer.Addr)
+			_ = httpServer.ListenAndServe()
 		}
 	}()
 
