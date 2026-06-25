@@ -105,7 +105,33 @@ export function peerName(id) {
 export function pushChat(data) {
   state.chat.push(data);
   state.chat = state.chat.slice(-MAX_CHAT_MESSAGES);
-  render();
+  updateChatUI();
+}
+
+export function updateChatUI() {
+  const list = document.querySelector("#chat-list");
+  if (list) {
+    list.innerHTML = state.chat.map(chatMessage).join("") || '<p class="muted">暂无聊天记录。</p>';
+    list.scrollTop = list.scrollHeight;
+  }
+  const counter = document.querySelector(".chat-head span");
+  if (counter) {
+    counter.textContent = `${state.chat.length}/${MAX_CHAT_MESSAGES}`;
+  }
+}
+
+export function updateRoomStatusUI(webrtcStatusText, statusText) {
+  const container = document.querySelector(".status-actions");
+  if (container) {
+    container.innerHTML = `
+      <div class="status-pill ${state.webrtcStatus}">${icon("link")}${webrtcStatusText()}</div>
+      <div class="status-pill ${state.wsStatus}">${icon("wifi")}${statusText()}</div>
+    `;
+  }
+  const counter = document.querySelector(".room-count span");
+  if (counter) {
+    counter.textContent = `${(state.room?.users || []).length} 人在线`;
+  }
 }
 
 export function sendChat(event) {

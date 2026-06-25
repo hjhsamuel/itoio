@@ -6,7 +6,7 @@ import {
 } from "./utils.js";
 import { authView, bindAuth, setLoginCallback } from "./auth.js";
 import { roomsPage, settingsPage, loadInvites, createInvite, updatePassword } from "./management.js";
-import { roomPage, sendChat, pushChat, currentUser, peerName, sendInput } from "./room.js";
+import { roomPage, updateRoomStatusUI, sendChat, pushChat, currentUser, peerName, sendInput } from "./room.js";
 
 const app = document.querySelector("#app");
 const MSG_TYPE_CHAT = 0x01;
@@ -138,6 +138,15 @@ function bindApp() {
   if (chatList) chatList.scrollTop = chatList.scrollHeight;
 }
 
+function updateWsStatus(status) {
+  state.wsStatus = status;
+  if (state.page === "room" && state.room) {
+    updateRoomStatusUI(webrtcStatusText, statusText);
+  } else {
+    render();
+  }
+}
+
 function connectSocket() {
   if (state.socket?.readyState === WebSocket.OPEN) return;
   if (state.reconnectTimer) {
@@ -147,25 +156,22 @@ function connectSocket() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   const url = `${proto}//${location.host}/ito/stream`;
   state.manualSocketClose = false;
-  state.wsStatus = "connecting";
-  render();
+  updateWsStatus("connecting");
   const ws = new WebSocket(url);
   state.socket = ws;
   ws.onopen = () => {
     state.reconnectAttempts = 0;
-    state.wsStatus = "online";
+    updateWsStatus("online");
     notice("信令已连接", "success");
-    render();
   };
   ws.onmessage = (event) => handleSignal(JSON.parse(event.data));
   ws.onclose = () => {
     if (state.socket === ws) state.socket = null;
-    state.wsStatus = "offline";
+    updateWsStatus("offline");
     if (!state.manualSocketClose && state.session) scheduleReconnect();
-    else render();
   };
   ws.onerror = () => {
-    state.wsStatus = "offline";
+    updateWsStatus("offline");
     ws.close();
   };
 }
@@ -245,8 +251,12 @@ async function handleSignal(message) {
     const isNewRoom = state.room?.id !== data.id;
     state.room = data;
     state.page = "room";
-    if (isNewRoom) state.chat = [];
-    render();
+    if (isNewRoom) {
+      state.chat = [];
+      render();
+    } else {
+      updateRoomStatusUI(webrtcStatusText, statusText);
+    }
     if (currentUser()?.owner) {
       for (const user of data.users.filter((u) => !u.owner && u.id !== state.session.id)) {
         await ensurePeer(user.id, true);
@@ -550,7 +560,11 @@ function updateWebrtcStatus() {
   } else {
     state.webrtcStatus = "offline";
   }
-  render();
+  if (state.page === "room" && state.room) {
+    updateRoomStatusUI(webrtcStatusText, statusText);
+  } else {
+    render();
+  }
 }
 
 function sendSignal(to, typ, data, options = {}) {
