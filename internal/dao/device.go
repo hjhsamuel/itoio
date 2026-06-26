@@ -2,6 +2,7 @@ package dao
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/hjhsamuel/itoio/internal/dao/schema"
@@ -9,12 +10,34 @@ import (
 )
 
 func (d *Dao) CreateDevice(obj *schema.Device) error {
+	var (
+		content []byte
+	)
 	key := schema.DeviceKey(obj.User, obj.Device)
-	content, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
 	return d.d.Update(func(tx *buntdb.Tx) error {
+		// check if device exists
+		val, err := tx.Get(key)
+		if err != nil {
+			if !errors.Is(err, buntdb.ErrNotFound) {
+				return err
+			}
+			// first time or temporary device, add
+			content, err = json.Marshal(obj)
+			if err != nil {
+				return err
+			}
+		} else {
+			// set state to online
+			var devObj *schema.Device
+			if err = json.Unmarshal([]byte(val), &devObj); err != nil {
+				return err
+			}
+			devObj.State = schema.DeviceStateOnline
+			content, err = json.Marshal(devObj)
+			if err != nil {
+				return err
+			}
+		}
 		_, _, err = tx.Set(key, string(content), nil)
 		return err
 	})

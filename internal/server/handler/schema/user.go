@@ -3,7 +3,8 @@ package schema
 type LoginReq struct {
 	Name     string `json:"name"`
 	Password string `json:"password"`
-	Device   string `json:"device"` // device id
+	Device   string `json:"device"`   // device id
+	DevName  string `json:"dev_name"` // device host name
 }
 
 type LoginRsp struct {
