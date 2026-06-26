@@ -27,26 +27,32 @@ func (m *RoomManager) GetCurrentRoom(id string) (*Room, error) {
 	return room, nil
 }
 
-func (m *RoomManager) CreateRoom(secret string, user *RoomUser) (string, error) {
+func (m *RoomManager) CreateRoom(secret string, mode RoomMode, user *RoomUser) (string, error) {
 	if _, ok := m.connected[user.ID]; ok {
 		return "", errors.New("user already in a room")
+	}
+
+	var prefix string
+	if mode == RoomModeControl {
+		prefix = "rd-"
 	}
 
 	var roomId string
 	for i := 0; i < 3; i++ {
 		id := m.gen.Generate()
-		roomId = id.Base58Unpredictable([]byte(common.RoomIdSalt))
-		if _, ok := m.Rooms[roomId]; ok {
+		rid := prefix + id.Base58Unpredictable([]byte(common.RoomIdSalt))
+		if _, ok := m.Rooms[rid]; ok {
 			time.Sleep(10 * time.Microsecond)
 			continue
 		}
+		roomId = rid
 		break
 	}
 	if roomId == "" {
 		return "", errors.New("create room failed, please try again later")
 	}
 
-	room, err := NewRoom(roomId, secret, user)
+	room, err := NewRoom(roomId, secret, mode, user)
 	if err != nil {
 		return "", err
 	}
@@ -127,6 +133,14 @@ func (m *RoomManager) InSameRoom(ids ...string) bool {
 		}
 	}
 	return true
+}
+
+func (m *RoomManager) UpdateSecret(roomId, userId, secret string) error {
+	room, ok := m.Rooms[roomId]
+	if !ok {
+		return errors.New("room not found")
+	}
+	return room.UpdateSecret(userId, secret)
 }
 
 func NewRoomManager(node int64) (*RoomManager, error) {

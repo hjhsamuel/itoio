@@ -21,7 +21,7 @@ func (c *Core) WebSocketHandler(user *request.User, conn *websocket.Conn) {
 		return nil
 	})
 
-	client := NewWebSocketConn(user.ID, conn, c.read)
+	client := NewWebSocketConn(user.ID, user.Device, conn, c.read)
 	c.read <- &ConnMessage{
 		Info:  client.info,
 		Event: &EventConnect{},

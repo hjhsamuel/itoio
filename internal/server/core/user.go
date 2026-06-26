@@ -30,7 +30,7 @@ func (c *Core) InitFirstUser() (string, string, error) {
 	return "admin", passwd, nil
 }
 
-func (c *Core) UserLogin(name, passwd string) (*schema.User, int, string, error) {
+func (c *Core) UserLogin(name, passwd, device string) (*schema.User, int, string, error) {
 	user, err := c.d.GetUserByName(name)
 	if err != nil {
 		return nil, 0, "", err
@@ -39,7 +39,7 @@ func (c *Core) UserLogin(name, passwd string) (*schema.User, int, string, error)
 	if err != nil || !matched {
 		return nil, 0, "", errors.New("invalid username or password")
 	}
-	out, err := token.Encode(user.ID, common.JwtSalt, common.JwtExp)
+	out, err := token.Encode(user.ID, device, common.JwtSalt, common.JwtExp)
 	if err != nil {
 		return nil, 0, "", err
 	}
@@ -69,12 +69,12 @@ func (c *Core) UserRegister(code string, name, passwd, nickname string) (string,
 	return user.ID, nil
 }
 
-func (c *Core) RefreshToken(id string) (int, string, error) {
+func (c *Core) RefreshToken(id, device string) (int, string, error) {
 	_, err := c.d.GetUserByID(id)
 	if err != nil {
 		return 0, "", err
 	}
-	out, err := token.Encode(id, common.JwtSalt, common.JwtExp)
+	out, err := token.Encode(id, device, common.JwtSalt, common.JwtExp)
 	if err != nil {
 		return 0, "", err
 	}

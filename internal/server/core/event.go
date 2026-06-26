@@ -12,6 +12,9 @@ const (
 	EventTypeLeave  = "leave"
 
 	EventTypeStopShare = "stop_share"
+
+	EventTypeRoomConfig = "room_config"
+	EventTypeControl    = "control"
 )
 
 type Request struct {

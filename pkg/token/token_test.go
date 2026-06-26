@@ -8,10 +8,11 @@ import (
 func TestJWT(t *testing.T) {
 	secret := "test_secret"
 	userID := "123456"
+	deviceID := "test_device"
 	duration := time.Hour
 
 	// Test Generate
-	token, err := Encode(userID, secret, duration)
+	token, err := Encode(userID, deviceID, secret, duration)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -35,7 +36,7 @@ func TestJWT(t *testing.T) {
 	}
 
 	// Test Expired Token
-	expiredToken, err := Encode(userID, secret, -time.Hour)
+	expiredToken, err := Encode(userID, deviceID, secret, -time.Hour)
 	if err != nil {
 		t.Fatalf("Failed to generate expired token: %v", err)
 	}

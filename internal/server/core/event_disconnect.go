@@ -13,48 +13,49 @@ type EventDisconnect struct {
 	Msg  string
 }
 
-type EventDisconnectExpired struct {
-	ID string
-}
+type EventDisconnectExpired struct{}
 
 func (e *EventDisconnect) Execute(c *Core, info *ConnBase) error {
-	current, ok := c.client[info.ID]
+	current, ok := c.client[info.UUID]
 	if !ok || current != info {
 		return nil
 	}
-	delete(c.client, info.ID)
+	delete(c.client, info.UUID)
 	Write(info.Write, &entities.CloseConn{Code: e.Code, Msg: e.Msg})
 
-	if _, err := c.rooms.MarkDisconnected(info.ID); err != nil {
+	if _, err := c.rooms.MarkDisconnected(info.UUID); err != nil {
 		return nil
 	}
-	c.scheduleDisconnectExpiry(info.ID)
+	c.scheduleDisconnectExpiry(info.UserID, info.Device, info.UUID)
 	return nil
 }
 
 func (e *EventDisconnectExpired) Execute(c *Core, info *ConnBase) error {
-	if _, ok := c.client[e.ID]; ok {
+	if _, ok := c.client[info.UUID]; ok {
 		return nil
 	}
-	delete(c.disconnectTimers, e.ID)
-	return c.leaveRoom(e.ID, "reconnect timeout")
+	delete(c.disconnectTimers, info.UUID)
+	if info.Device != "" {
+		_ = c.d.DeviceOffline(info.UserID, info.Device)
+	}
+	return c.leaveRoom(info.UUID, "reconnect timeout")
 }
 
-func (c *Core) scheduleDisconnectExpiry(userID string) {
-	c.cancelDisconnectTimer(userID)
-	c.disconnectTimers[userID] = time.AfterFunc(reconnectGracePeriod, func() {
+func (c *Core) scheduleDisconnectExpiry(userId, device, uid string) {
+	c.cancelDisconnectTimer(uid)
+	c.disconnectTimers[uid] = time.AfterFunc(reconnectGracePeriod, func() {
 		c.read <- &ConnMessage{
-			Info:  &ConnBase{ID: userID},
-			Event: &EventDisconnectExpired{ID: userID},
+			Info:  &ConnBase{UserID: userId, Device: device, UUID: uid},
+			Event: &EventDisconnectExpired{},
 		}
 	})
 }
 
-func (c *Core) cancelDisconnectTimer(userID string) {
-	timer, ok := c.disconnectTimers[userID]
+func (c *Core) cancelDisconnectTimer(id string) {
+	timer, ok := c.disconnectTimers[id]
 	if !ok {
 		return
 	}
 	timer.Stop()
-	delete(c.disconnectTimers, userID)
+	delete(c.disconnectTimers, id)
 }

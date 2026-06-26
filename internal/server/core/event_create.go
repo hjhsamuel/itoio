@@ -6,19 +6,20 @@ import (
 )
 
 type EventCreate struct {
-	Secret string `json:"secret"`
+	Secret string        `json:"secret"`
+	Mode   room.RoomMode `json:"mode"`
 }
 
 func (e *EventCreate) Execute(c *Core, info *ConnBase) error {
 	var name string
-	if userObj, err := c.d.GetUserByID(info.ID); err != nil {
-		name = info.ID
+	if userObj, err := c.d.GetUserByID(info.UserID); err != nil {
+		name = info.UUID
 	} else {
 		name = userObj.Name
 	}
 
-	roomId, err := c.rooms.CreateRoom(e.Secret, &room.RoomUser{
-		ID:       info.ID,
+	roomId, err := c.rooms.CreateRoom(e.Secret, e.Mode, &room.RoomUser{
+		ID:       info.UUID,
 		Nickname: name,
 		Owner:    true,
 		Write:    info.Write,
@@ -28,7 +29,7 @@ func (e *EventCreate) Execute(c *Core, info *ConnBase) error {
 		return err
 	}
 	Write(info.Write, &entities.EnterRoom{OK: true, Data: roomId})
-	if roomObj, err := c.rooms.GetCurrentRoom(info.ID); err == nil {
+	if roomObj, err := c.rooms.GetCurrentRoom(info.UUID); err == nil {
 		c.roomInfoChanged(roomObj)
 	}
 	return nil

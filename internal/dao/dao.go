@@ -27,6 +27,11 @@ func (d *Dao) init() error {
 		return err
 	}
 
+	err = d.d.CreateIndex(schema.IdxDeviceUser, schema.DevicePattern, buntdb.IndexJSON("user"))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

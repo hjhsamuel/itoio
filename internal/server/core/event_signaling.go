@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hjhsamuel/itoio/internal/entities"
 )
@@ -14,15 +15,29 @@ type EventSignaling struct {
 }
 
 func (e *EventSignaling) Execute(c *Core, info *ConnBase) error {
-	if e.From != info.ID {
-		return fmt.Errorf("signaling sender %s does not match current connection %s", e.From, info.ID)
+	var fromID string
+	if !strings.Contains(e.From, ":") {
+		// browser
+		fromID = info.UserID
+	} else {
+		fromID = info.UUID
 	}
-	if !c.rooms.InSameRoom(e.From, e.To) {
-		return fmt.Errorf("users %s and %s are not in the same room", e.From, e.To)
+	var toID string
+	if strings.Contains(e.To, ":") {
+		toID = e.To
+	} else {
+		toID = e.To + ":"
 	}
-	conn := c.client[e.To]
+
+	if e.From != fromID {
+		return fmt.Errorf("signaling sender %s does not match current connection %s", e.From, fromID)
+	}
+	if !c.rooms.InSameRoom(info.UUID, toID) {
+		return fmt.Errorf("users %s and %s are not in the same room", fromID, toID)
+	}
+	conn := c.client[toID]
 	if conn == nil {
-		return fmt.Errorf("target user %s is not connected", e.To)
+		return fmt.Errorf("target user %s is not connected", toID)
 	}
 	Write(conn.Write, &entities.Signaling{
 		Typ:  e.Typ,

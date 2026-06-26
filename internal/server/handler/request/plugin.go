@@ -27,7 +27,8 @@ func WithAuth(ctx *gin.Context) {
 		return
 	}
 	ctx.Set(AuthCtxKey, &User{
-		ID: claim.ID,
+		ID:     claim.ID,
+		Device: claim.Device,
 	})
 	ctx.Next()
 }

@@ -17,6 +17,8 @@ export const state = {
   peers: new Map(),
   dataChannels: new Map(),
   remoteStreams: new Map(),
+  devices: [],
+  devicePagination: { page: 1, limit: 10, total: 0 },
   chat: [],
   notices: [],
   wsStatus: "offline",

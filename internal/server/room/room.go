@@ -7,11 +7,18 @@ import (
 	"github.com/hjhsamuel/itoio/pkg/password"
 )
 
+type RoomMode int
+
+const (
+	RoomModeLive    RoomMode = iota + 1 // live
+	RoomModeControl                     // control
+)
+
 type Room struct {
-	ID                string
-	Secret            string
-	CloseOnOwnerLeave bool
-	Users             map[string]*RoomUser
+	ID     string
+	Secret string
+	Mode   RoomMode
+	Users  map[string]*RoomUser
 }
 
 func (r *Room) GetUsers() []*RoomUser {
@@ -36,6 +43,18 @@ func (r *Room) AddWatcher(secret string, user *RoomUser) error {
 	return nil
 }
 
+func (r *Room) UpdateSecret(id string, secret string) error {
+	if val, ok := r.Users[id]; ok && val.Owner {
+		passwd, err := password.HashPassword(secret, password.DefaultParams)
+		if err != nil {
+			return err
+		}
+		r.Secret = passwd
+		return nil
+	}
+	return errors.New("permission denied")
+}
+
 func (r *Room) SetUserWrite(id string, write chan entities.Message) bool {
 	user, ok := r.Users[id]
 	if !ok {
@@ -57,11 +76,11 @@ func (r *Room) RemoveWatcher(id string) bool {
 	return false
 }
 
-func NewRoom(id, secret string, owner *RoomUser) (*Room, error) {
+func NewRoom(id, secret string, mode RoomMode, owner *RoomUser) (*Room, error) {
 	r := &Room{
-		ID:                id,
-		CloseOnOwnerLeave: true,
-		Users:             make(map[string]*RoomUser),
+		ID:    id,
+		Mode:  mode,
+		Users: make(map[string]*RoomUser),
 	}
 	if secret != "" {
 		passwd, err := password.HashPassword(secret, password.DefaultParams)

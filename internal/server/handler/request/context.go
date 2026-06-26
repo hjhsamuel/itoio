@@ -10,10 +10,12 @@ type Context struct {
 }
 
 type User struct {
-	ID string `json:"id"`
+	ID     string `json:"id"`
+	Device string `json:"device"`
 }
 
 const (
-	AuthCtxKey    = "AUTH"
-	AuthCookieKey = "ito"
+	AuthCtxKey        = "AUTH"
+	AuthCookieKey     = "ito"
+	ConnTypeCookieKey = ""
 )

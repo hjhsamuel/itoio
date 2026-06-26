@@ -14,14 +14,21 @@ const (
 	websocketWriteWait = time.Second * 2
 )
 
+const (
+	ConnTypeBrowser = "browser" // user
+	ConnTypeAgent   = "agent"   // device
+)
+
 type ConnMessage struct {
 	Info  *ConnBase
 	Event Event
 }
 
 type ConnBase struct {
-	ID    string
-	Write chan entities.Message
+	Device string
+	UserID string
+	UUID   string
+	Write  chan entities.Message
 }
 
 type WebSocketConn struct {
@@ -94,7 +101,7 @@ func (c *WebSocketConn) switchEvent(m []byte) (Event, error) {
 	}
 	var event Event
 	switch req.Type {
-	case EventTypeOffer, EventTypeAnswer, EventTypeCandidate, EventTypeStopShare:
+	case EventTypeOffer, EventTypeAnswer, EventTypeCandidate, EventTypeStopShare, EventTypeControl:
 		var obj *EventSignaling
 		if err := json.Unmarshal(req.Data, &obj); err != nil {
 			return nil, err
@@ -115,6 +122,12 @@ func (c *WebSocketConn) switchEvent(m []byte) (Event, error) {
 		event = obj
 	case EventTypeLeave:
 		event = &EventLeave{}
+	case EventTypeRoomConfig:
+		var obj *EventRoom
+		if err := json.Unmarshal(req.Data, &obj); err != nil {
+			return nil, err
+		}
+		event = obj
 	default:
 		return nil, fmt.Errorf("unknown event type: %s", req.Type)
 	}
@@ -158,11 +171,13 @@ func (c *WebSocketConn) doWriting() {
 	}
 }
 
-func NewWebSocketConn(id string, conn *websocket.Conn, read chan *ConnMessage) *WebSocketConn {
+func NewWebSocketConn(id string, device string, conn *websocket.Conn, read chan *ConnMessage) *WebSocketConn {
 	return &WebSocketConn{
 		info: &ConnBase{
-			ID:    id,
-			Write: make(chan entities.Message, 1),
+			Device: device,
+			UserID: id,
+			UUID:   fmt.Sprintf("%s:%s", id, device),
+			Write:  make(chan entities.Message, 1),
 		},
 		conn: conn,
 		read: read,

@@ -5,11 +5,17 @@ import {
   MAX_WS_RECONNECT_ATTEMPTS, WS_RECONNECT_MAX_DELAY, WS_RECONNECT_BASE_DELAY
 } from "./utils.js";
 import { authView, bindAuth, setLoginCallback } from "./auth.js";
-import { roomsPage, settingsPage, loadInvites, createInvite, updatePassword } from "./management.js";
-import { roomPage, updateRoomStatusUI, sendChat, pushChat, currentUser, peerName, sendInput } from "./room.js";
+import {
+  roomsPage, settingsPage, loadInvites, createInvite, updatePassword,
+  devicesPage, loadDevices, controlPage
+} from "./management.js";
+import {
+  roomPage, updateRoomStatusUI, sendChat, pushChat, currentUser, peerName, sendInput,
+  MSG_TYPE_CHAT, MSG_TYPE_INPUT
+} from "./room.js";
+import { initCapture } from "./device.js";
 
 const app = document.querySelector("#app");
-const MSG_TYPE_CHAT = 0x01;
 
 setRenderCallback(() => {
   app.innerHTML = state.session ? shell() : authView();
@@ -24,11 +30,12 @@ setAuthFailureCallback(() => {
 
 setLoginCallback(() => {
   setTimeout(loadInvites, 0);
+  setTimeout(loadDevices, 0);
   setTimeout(connectSocket, 0);
 });
 
 function shell() {
-  const inRoom = state.page === "room" && state.room;
+  const inRoom = (state.page === "room" || state.page === "control") && state.room;
   return `
     <main class="app-shell ${inRoom ? "in-room" : ""}">
       <button class="sidebar-toggle" id="toggle-sidebar" aria-label="切换菜单">${icon("settings")}</button>
@@ -36,6 +43,7 @@ function shell() {
         <div class="brand-mark">${icon("link")}<span>itoio</span></div>
         <nav>
           <button class="nav-item ${state.page === "rooms" ? "active" : ""}" data-page="rooms">${icon("video")}房间管理</button>
+          <button class="nav-item ${state.page === "devices" ? "active" : ""}" data-page="devices">${icon("shield")}远程控制</button>
           <button class="nav-item ${state.page === "settings" ? "active" : ""}" data-page="settings">${icon("settings")}设置</button>
         </nav>
         <div class="account">
@@ -53,6 +61,8 @@ function shell() {
 
 function pageView() {
   if (state.page === "room" && state.room) return roomPage(webrtcStatusText, statusText);
+  if (state.page === "control" && state.room) return controlPage(webrtcStatusText, statusText);
+  if (state.page === "devices") return devicesPage(statusText);
   if (state.page === "settings") return settingsPage(statusText);
   return roomsPage(statusText);
 }
@@ -87,6 +97,9 @@ function bindApp() {
         notice("请先创建或加入房间", "error");
         return;
       }
+      if (state.room && next !== "room" && next !== "control" && next !== state.page) {
+        leaveRoom();
+      }
       state.page = next;
       sidebar?.classList.remove("open");
       render();
@@ -108,6 +121,16 @@ function bindApp() {
   });
   document.querySelector("#create-invite")?.addEventListener("click", createInvite);
   document.querySelector("#refresh-invites")?.addEventListener("click", loadInvites);
+  document.querySelectorAll("[data-control-device]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const deviceId = btn.dataset.controlDevice;
+      sendRoomEvent("join", { id: "rd-" + deviceId, secret: "" });
+    });
+  });
+
+  document.querySelector("#refresh-devices")?.addEventListener("click", () => loadDevices());
+  document.querySelector("#prev-page")?.addEventListener("click", () => loadDevices(state.devicePagination.page - 1));
+  document.querySelector("#next-page")?.addEventListener("click", () => loadDevices(state.devicePagination.page + 1));
   document.querySelector("#password-form")?.addEventListener("submit", updatePassword);
   document.querySelector("#chat-form")?.addEventListener("submit", sendChat);
   document.querySelectorAll("[data-fullscreen]").forEach((btn) => {
@@ -250,7 +273,11 @@ async function handleSignal(message) {
   if (type === "room") {
     const isNewRoom = state.room?.id !== data.id;
     state.room = data;
-    state.page = "room";
+    if (data.id.startsWith("rd-")) {
+      state.page = "control";
+    } else {
+      state.page = "room";
+    }
     if (isNewRoom) {
       state.chat = [];
       render();
@@ -607,6 +634,16 @@ function attachVideoElements() {
     const stream = state.remoteStreams.get(video.dataset.peer);
     if (stream && video.srcObject !== stream) {
       video.srcObject = stream;
+      
+      if (state.page === "control") {
+        initCapture(video, (frame) => {
+          sendInput(MSG_TYPE_INPUT, frame);
+        });
+      }
+      
+      video.addEventListener('mouseenter', () => {
+        video.focus();
+      });
     }
   });
 }

@@ -12,13 +12,13 @@ type EventJoin struct {
 
 func (e *EventJoin) Execute(c *Core, info *ConnBase) error {
 	var name string
-	if userObj, err := c.d.GetUserByID(info.ID); err != nil {
-		name = info.ID
+	if userObj, err := c.d.GetUserByID(info.UserID); err != nil {
+		name = info.UUID
 	} else {
 		name = userObj.Name
 	}
 	user := &room.RoomUser{
-		ID:       info.ID,
+		ID:       info.UUID,
 		Nickname: name,
 		Owner:    false,
 		Write:    info.Write,

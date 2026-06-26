@@ -13,15 +13,17 @@ var (
 )
 
 type Claims struct {
-	ID string `json:"id"`
+	ID     string `json:"id"`
+	Device string `json:"device"`
 
 	jwt.RegisteredClaims
 }
 
-func Encode(id string, salt string, duration time.Duration) (string, error) {
+func Encode(id, device string, salt string, duration time.Duration) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		ID: id,
+		ID:     id,
+		Device: device,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "ito",
 			Subject:   id,

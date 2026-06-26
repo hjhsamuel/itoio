@@ -17,7 +17,7 @@ func (a *api) Login(ctx *gin.Context) {
 		})
 		return
 	}
-	user, expire, token, err := a.srv.UserLogin(req.Name, req.Password)
+	user, expire, token, err := a.srv.UserLogin(req.Name, req.Password, req.Device)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, &request.Response{
 			Code:    http.StatusUnauthorized,
@@ -83,7 +83,7 @@ func (a *api) Refresh(ctx *gin.Context) {
 		})
 		return
 	}
-	expire, token, err := a.srv.RefreshToken(user.ID)
+	expire, token, err := a.srv.RefreshToken(user.ID, user.Device)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, &request.Response{
 			Code:    http.StatusUnauthorized,

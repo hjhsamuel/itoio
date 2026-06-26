@@ -22,11 +22,13 @@ func Routes(c *core.Core, e *gin.Engine) error {
 
 	group := e.Group("/ito")
 	group.Use(request.WithAuth)
-	group.PUT("/refresh", a.Refresh)
 	group.GET("/stream", a.WebSocket)
 	group.GET("/admin/code", a.GetInviteCodeList)
 	group.POST("/admin/code", a.CreateInviteCode)
 	group.PUT("/admin/passwd", a.UpdatePassword)
+	group.PUT("/device", a.UpdateDevice)
+	group.DELETE("/device", a.DelDevice)
+	group.GET("/device", a.MineDevices)
 
 	return nil
 }

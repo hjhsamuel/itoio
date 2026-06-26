@@ -66,18 +66,22 @@ func (c *Core) Start(conf *config.Config) error {
 }
 
 func (c *Core) turnAuthHandler(ra *turn.RequestAttributes) (string, []byte, bool) {
-	expire, userID, ok := strings.Cut(ra.Username, ":")
-	if !ok {
+	// {expire}:{user id}:{device id}
+	parts := strings.FieldsFunc(ra.Username, func(r rune) bool {
+		return r == ':'
+	})
+	if len(parts) < 2 {
 		return "", nil, false
 	}
-	expireAt, err := strconv.ParseInt(expire, 10, 64)
+
+	expireAt, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil || time.Now().Unix() > expireAt {
 		return "", nil, false
 	}
 	if c.d == nil {
 		return "", nil, false
 	}
-	if _, err = c.d.GetUserByID(userID); err != nil {
+	if _, err = c.d.GetUserByID(parts[1]); err != nil {
 		return "", nil, false
 	}
 	credential := turnCredential(ra.Username)
@@ -91,8 +95,9 @@ func turnCredential(username string) string {
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
-func turnUsername(userID string) string {
-	return fmt.Sprintf("%d:%s", time.Now().Add(common.JwtExp).Unix(), userID)
+func turnUsername(id string) string {
+	// {expire}:{user id}:{device id}
+	return fmt.Sprintf("%d:%s", time.Now().Add(common.JwtExp).Unix(), id)
 }
 
 func (c *Core) Close() error {

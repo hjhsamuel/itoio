@@ -10,19 +10,19 @@ import (
 type EventConnect struct{}
 
 func (e *EventConnect) Execute(c *Core, info *ConnBase) error {
-	if old := c.client[info.ID]; old != nil && old != info {
-		c.cancelDisconnectTimer(info.ID)
+	if old := c.client[info.UUID]; old != nil && old != info {
+		c.cancelDisconnectTimer(info.UUID)
 	}
-	c.client[info.ID] = info
-	if roomObj, err := c.rooms.ReconnectUser(info.ID, info.Write); err == nil {
-		c.cancelDisconnectTimer(info.ID)
+	c.client[info.UUID] = info
+	if roomObj, err := c.rooms.ReconnectUser(info.UUID, info.Write); err == nil {
+		c.cancelDisconnectTimer(info.UUID)
 		c.roomInfoChanged(roomObj)
 	}
-	Write(info.Write, c.iceConfig(info.ID))
+	Write(info.Write, c.iceConfig(info.UUID))
 	return nil
 }
 
-func (c *Core) iceConfig(userID string) *entities.IceConfig {
+func (c *Core) iceConfig(id string) *entities.IceConfig {
 	host := c.turnConfig.PublicIP
 	port := c.turnConfig.Port
 	servers := []*entities.IceServer{}
@@ -31,7 +31,7 @@ func (c *Core) iceConfig(userID string) *entities.IceConfig {
 			URLs: []string{fmt.Sprintf("stun:%s:%d", host, port)},
 		})
 		if c.turnConfig.Mode == config.TurnModeTurn {
-			username := turnUsername(userID)
+			username := turnUsername(id)
 			servers = append(servers, &entities.IceServer{
 				URLs:       []string{fmt.Sprintf("turn:%s:%d", host, port)},
 				Username:   username,

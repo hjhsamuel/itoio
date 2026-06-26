@@ -1,11 +1,12 @@
 import { state } from "./state.js";
 import { icon, escapeHtml, MAX_CHAT_MESSAGES, notice, render } from "./utils.js";
 
-const MSG_TYPE_CHAT = 0x01;
-const MSG_TYPE_INPUT = 0x02;
+export const MSG_TYPE_CHAT = 0x01;
+export const MSG_TYPE_INPUT = 0x02;
 
 export function roomPage(webrtcStatusText, statusText) {
   const room = state.room;
+  
   return `
     <div class="room-layout">
       <section class="room-stage">
@@ -23,8 +24,7 @@ export function roomPage(webrtcStatusText, statusText) {
           ${videoTiles()}
         </div>
         <div class="room-menu">
-          <button class="ghost" data-page="rooms">${icon("video")}房间管理</button>
-          <button class="secondary" id="leave-room">${icon("logOut")}离开房间</button>
+          <button class="ghost" data-page="rooms">${icon("logOut")}离开房间</button>
           <button class="${state.stream ? "secondary" : "primary"}" id="share-screen" ${currentUser()?.owner ? "" : "disabled"}>
             ${state.stream ? icon("logOut") + "停止共享" : icon("screen") + "开始共享"}
           </button>
@@ -55,7 +55,7 @@ function videoTiles() {
   const remoteEntries = Array.from(state.remoteStreams.entries());
   const remoteTiles = remoteEntries.slice(0, 1).map(([id]) => `
     <div class="video-tile">
-      <video data-peer="${escapeHtml(id)}" autoplay playsinline></video>
+      <video data-peer="${escapeHtml(id)}" autoplay playsinline tabindex="0"></video>
       <div class="tile-label">${escapeHtml(peerName(id))}</div>
       <button class="fullscreen-btn" title="${state.isFullscreen ? "退出全屏" : "全屏"}" data-fullscreen>
         ${icon(state.isFullscreen ? "minimize" : "maximize")}
@@ -103,6 +103,7 @@ export function peerName(id) {
 }
 
 export function pushChat(data) {
+  if (!data.time) data.time = Date.now();
   state.chat.push(data);
   state.chat = state.chat.slice(-MAX_CHAT_MESSAGES);
   updateChatUI();
@@ -166,12 +167,18 @@ export function sendChat(event) {
   input.value = "";
 }
 
-export function sendInput(type, eventData) {
-  const data = { type, ...eventData };
-  const encoded = new TextEncoder().encode(JSON.stringify(data));
-  const packet = new Uint8Array(1 + encoded.length);
-  packet[0] = MSG_TYPE_INPUT;
-  packet.set(encoded, 1);
+export function sendInput(type, data) {
+  let packet;
+  if (data instanceof Uint8Array) {
+    packet = new Uint8Array(1 + data.length);
+    packet[0] = type;
+    packet.set(data, 1);
+  } else {
+    const encoded = new TextEncoder().encode(JSON.stringify(data));
+    packet = new Uint8Array(1 + encoded.length);
+    packet[0] = type;
+    packet.set(encoded, 1);
+  }
 
   state.dataChannels.forEach((channel) => {
     if (channel.readyState === "open") {
