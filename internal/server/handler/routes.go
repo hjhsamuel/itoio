@@ -29,6 +29,7 @@ func Routes(c *core.Core, e *gin.Engine) error {
 	group.PUT("/device", a.UpdateDevice)
 	group.DELETE("/device", a.DelDevice)
 	group.GET("/device", a.MineDevices)
+	group.PUT("/room", a.UpdateRoomConfig)
 
 	return nil
 }

@@ -12,10 +12,20 @@ type EventCreate struct {
 
 func (e *EventCreate) Execute(c *Core, info *ConnBase) error {
 	var name string
-	if userObj, err := c.d.GetUserByID(info.UserID); err != nil {
-		name = info.UUID
+	if info.Device != "" {
+		// agent
+		if devObj, err := c.d.GetDevice(info.UserID, info.Device); err != nil {
+			name = info.UUID
+		} else {
+			name = devObj.Name
+		}
 	} else {
-		name = userObj.Name
+		// browser
+		if userObj, err := c.d.GetUserByID(info.UserID); err != nil {
+			name = info.UUID
+		} else {
+			name = userObj.Name
+		}
 	}
 
 	roomId, err := c.rooms.CreateRoom(e.Secret, e.Mode, &room.RoomUser{

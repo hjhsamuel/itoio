@@ -129,3 +129,19 @@ func (d *Dao) UpdateDevice(userId, deviceId string, name *string, state schema.D
 		return err
 	})
 }
+
+func (d *Dao) GetDevice(userId, deviceId string) (*schema.Device, error) {
+	var obj *schema.Device
+	key := schema.DeviceKey(userId, deviceId)
+	err := d.d.View(func(tx *buntdb.Tx) error {
+		val, err := tx.Get(key)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal([]byte(val), &obj)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}

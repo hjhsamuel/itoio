@@ -122,12 +122,6 @@ func (c *WebSocketConn) switchEvent(m []byte) (Event, error) {
 		event = obj
 	case EventTypeLeave:
 		event = &EventLeave{}
-	case EventTypeRoomConfig:
-		var obj *EventRoom
-		if err := json.Unmarshal(req.Data, &obj); err != nil {
-			return nil, err
-		}
-		event = obj
 	default:
 		return nil, fmt.Errorf("unknown event type: %s", req.Type)
 	}
@@ -176,7 +170,7 @@ func NewWebSocketConn(id string, device string, conn *websocket.Conn, read chan 
 		info: &ConnBase{
 			Device: device,
 			UserID: id,
-			UUID:   fmt.Sprintf("%s:%s", id, device),
+			UUID:   GenerateConnUUID(id, device),
 			Write:  make(chan entities.Message, 1),
 		},
 		conn: conn,
@@ -189,4 +183,8 @@ func Write(ch chan entities.Message, msg entities.Message) {
 	case <-time.After(time.Second * 2):
 	case ch <- msg:
 	}
+}
+
+func GenerateConnUUID(userId, deviceId string) string {
+	return fmt.Sprintf("%s:%s", userId, deviceId)
 }
