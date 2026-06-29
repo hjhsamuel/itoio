@@ -9,6 +9,8 @@ import (
 	"github.com/hjhsamuel/itoio/pkg/snowflake"
 )
 
+const ControlPrefix = "rd-"
+
 type RoomManager struct {
 	Rooms     map[string]*Room
 	connected map[string]string
@@ -34,7 +36,7 @@ func (m *RoomManager) CreateRoom(secret string, mode RoomMode, user *RoomUser) (
 
 	var prefix string
 	if mode == RoomModeControl {
-		prefix = "rd-"
+		prefix = ControlPrefix
 	}
 
 	var roomId string

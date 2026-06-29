@@ -13,6 +13,8 @@ const (
 	MessageTypeOffer     = "offer"
 	MessageTypeAnswer    = "answer"
 	MessageTypeCandidate = "candidate"
+
+	MessageTypeControl = "control"
 )
 
 type Message interface {
@@ -90,4 +92,10 @@ type Signaling struct {
 
 func (s *Signaling) Type() string {
 	return s.Typ
+}
+
+type Control struct{}
+
+func (c *Control) Type() string {
+	return MessageTypeControl
 }

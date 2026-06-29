@@ -14,11 +14,6 @@ const (
 	websocketWriteWait = time.Second * 2
 )
 
-const (
-	ConnTypeBrowser = "browser" // user
-	ConnTypeAgent   = "agent"   // device
-)
-
 type ConnMessage struct {
 	Info  *ConnBase
 	Event Event
@@ -101,7 +96,7 @@ func (c *WebSocketConn) switchEvent(m []byte) (Event, error) {
 	}
 	var event Event
 	switch req.Type {
-	case EventTypeOffer, EventTypeAnswer, EventTypeCandidate, EventTypeStopShare, EventTypeControl:
+	case EventTypeOffer, EventTypeAnswer, EventTypeCandidate, EventTypeStopShare:
 		var obj *EventSignaling
 		if err := json.Unmarshal(req.Data, &obj); err != nil {
 			return nil, err
@@ -116,6 +111,12 @@ func (c *WebSocketConn) switchEvent(m []byte) (Event, error) {
 		event = obj
 	case EventTypeJoin:
 		var obj *EventJoin
+		if err := json.Unmarshal(req.Data, &obj); err != nil {
+			return nil, err
+		}
+		event = obj
+	case EventTypeCJoin:
+		var obj *EventCJoin
 		if err := json.Unmarshal(req.Data, &obj); err != nil {
 			return nil, err
 		}

@@ -13,7 +13,7 @@ const (
 
 	EventTypeStopShare = "stop_share"
 
-	EventTypeControl = "control"
+	EventTypeCJoin = "cjoin"
 )
 
 type Request struct {

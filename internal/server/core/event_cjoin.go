@@ -8,13 +8,13 @@ import (
 	"github.com/hjhsamuel/itoio/internal/server/room"
 )
 
-type EventJoin struct {
+type EventCJoin struct {
 	ID     string `json:"id"`
 	Secret string `json:"secret"`
 }
 
-func (e *EventJoin) Execute(c *Core, info *ConnBase) error {
-	if strings.HasPrefix(e.ID, room.ControlPrefix) {
+func (e *EventCJoin) Execute(c *Core, info *ConnBase) error {
+	if !strings.HasPrefix(e.ID, room.ControlPrefix) {
 		return errors.New("invalid room id: " + e.ID)
 	}
 
@@ -35,6 +35,12 @@ func (e *EventJoin) Execute(c *Core, info *ConnBase) error {
 		Write(info.Write, &entities.EnterRoom{OK: false, Data: err.Error()})
 	} else {
 		c.roomInfoChanged(roomObj)
+		for _, item := range roomObj.GetUsers() {
+			if item.Owner {
+				Write(item.Write, &entities.Control{})
+				break
+			}
+		}
 	}
 	return err
 }
