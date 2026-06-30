@@ -20,7 +20,7 @@ func (a *api) Login(ctx *gin.Context) {
 	user, expire, token, err := a.srv.UserLogin(req.Name, req.Password, req.Device)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, &request.Response{
-			Code:    http.StatusUnauthorized,
+			Code:    http.StatusInternalServerError,
 			Message: "invalid username or password",
 		})
 		return
