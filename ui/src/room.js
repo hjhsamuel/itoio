@@ -3,6 +3,8 @@ import { icon, escapeHtml, MAX_CHAT_MESSAGES, notice, render } from "./utils.js"
 
 export const MSG_TYPE_CHAT = 0x01;
 export const MSG_TYPE_INPUT = 0x02;
+export const MSG_TYPE_MODE = 0x03;
+export const MSG_TYPE_CONTROL = 0x04;
 
 export function roomPage(webrtcStatusText, statusText) {
   const room = state.room;

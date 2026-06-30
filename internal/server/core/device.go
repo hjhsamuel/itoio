@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/hjhsamuel/itoio/internal/dao/schema"
+	"github.com/hjhsamuel/itoio/internal/entities"
 )
 
 func (c *Core) AddDevice(userID, deviceId string, name string) error {
@@ -27,6 +28,28 @@ func (c *Core) DeleteDevice(id string, userID string) error {
 	return c.d.DeleteDevice(id, userID)
 }
 
-func (c *Core) GetDevices(userID string, page, limit int) ([]*schema.Device, int64, error) {
-	return c.d.GetDevicesByUser(userID, page, limit)
+func (c *Core) GetDevices(userID string, page, limit int) ([]*entities.DeviceInfo, int64, error) {
+	objs, cnt, err := c.d.GetDevicesByUser(userID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	res := make([]*entities.DeviceInfo, 0, len(objs))
+	for _, item := range objs {
+		obj := &entities.DeviceInfo{
+			ID:    item.Device,
+			User:  item.User,
+			Name:  item.Name,
+			State: int(item.State),
+			Temp:  item.Temp,
+		}
+		if item.State == schema.DeviceStateOnline {
+			id := GenerateConnUUID(item.User, item.Device)
+			room, err := c.rooms.GetCurrentRoom(id)
+			if err == nil {
+				obj.Room = room.ID
+			}
+		}
+		res = append(res, obj)
+	}
+	return res, cnt, nil
 }

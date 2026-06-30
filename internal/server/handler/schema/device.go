@@ -23,4 +23,5 @@ type DeviceInfo struct {
 	Name  string `json:"name"`
 	State int    `json:"state"`
 	Temp  bool   `json:"temp"`
+	Room  string `json:"room"`
 }

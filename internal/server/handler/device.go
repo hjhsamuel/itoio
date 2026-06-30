@@ -118,10 +118,11 @@ func (a *api) MineDevices(ctx *gin.Context) {
 	}
 	for _, d := range devices {
 		rsp.Data = append(rsp.Data, &schema.DeviceInfo{
-			ID:    d.Device,
+			ID:    d.ID,
 			Name:  d.Name,
-			State: int(d.State),
+			State: d.State,
 			Temp:  d.Temp,
+			Room:  d.Room,
 		})
 	}
 

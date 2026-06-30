@@ -35,12 +35,6 @@ func (e *EventCJoin) Execute(c *Core, info *ConnBase) error {
 		Write(info.Write, &entities.EnterRoom{OK: false, Data: err.Error()})
 	} else {
 		c.roomInfoChanged(roomObj)
-		for _, item := range roomObj.GetUsers() {
-			if item.Owner {
-				Write(item.Write, &entities.Control{})
-				break
-			}
-		}
 	}
 	return err
 }

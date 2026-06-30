@@ -11,7 +11,7 @@ import {
 } from "./management.js";
 import {
   roomPage, updateRoomStatusUI, sendChat, pushChat, currentUser, peerName, sendInput,
-  MSG_TYPE_CHAT, MSG_TYPE_INPUT
+  MSG_TYPE_CHAT, MSG_TYPE_INPUT, MSG_TYPE_CONTROL
 } from "./room.js";
 import { initCapture } from "./device.js";
 
@@ -113,7 +113,12 @@ function bindApp() {
   document.querySelector("#join-room")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    sendRoomEvent("join", { id: form.get("id"), secret: form.get("secret") });
+    const id = form.get("id");
+    if (id && id.startsWith("rd-")) {
+      notice("非法房间 ID", "error");
+      return;
+    }
+    sendRoomEvent("join", { id: id, secret: form.get("secret") });
   });
   document.querySelector("#leave-room")?.addEventListener("click", leaveRoom);
   document.querySelector("#share-screen")?.addEventListener("click", () => {
@@ -124,7 +129,7 @@ function bindApp() {
   document.querySelectorAll("[data-control-device]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const deviceId = btn.dataset.controlDevice;
-      sendRoomEvent("join", { id: "rd-" + deviceId, secret: "" });
+      sendRoomEvent("cjoin", { id: "rd-" + deviceId, secret: "" });
     });
   });
 
@@ -568,7 +573,15 @@ async function updatePeerHolePunchStatus(id, peer) {
     const local = selectedPair ? stats.get(selectedPair.localCandidateId) : null;
     const remote = selectedPair ? stats.get(selectedPair.remoteCandidateId) : null;
     const direct = local?.candidateType !== "relay" && remote?.candidateType !== "relay";
-    state.peerStates.set(id, direct ? "direct" : "relay");
+    const oldStatus = state.peerStates.get(id);
+    const newStatus = direct ? "direct" : "relay";
+    state.peerStates.set(id, newStatus);
+    
+    if (newStatus !== oldStatus && (newStatus === "direct" || newStatus === "relay")) {
+      if (state.page === "control") {
+        sendInput(MSG_TYPE_CONTROL, { type: "start" });
+      }
+    }
   } catch {
     state.peerStates.set(id, "connecting");
   }
