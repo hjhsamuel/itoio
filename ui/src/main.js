@@ -285,6 +285,9 @@ async function handleSignal(message) {
     }
     if (isNewRoom) {
       state.chat = [];
+      state.peers.forEach((peer, id) => closePeer(id));
+      state.peers.clear();
+      state.peerStates.clear();
       render();
     } else {
       updateRoomStatusUI(webrtcStatusText, statusText);
@@ -293,6 +296,16 @@ async function handleSignal(message) {
       for (const user of data.users.filter((u) => !u.owner && u.id !== state.session.id)) {
         await ensurePeer(user.id, true);
       }
+      // 清理已经不在房间内的用户连接
+      const currentInRoomIds = new Set(data.users.map(u => u.id));
+      for (const peerId of state.peers.keys()) {
+        if (!currentInRoomIds.has(peerId)) {
+          closePeer(peerId);
+          state.peerStates.delete(peerId);
+          state.relayFallbackPeers.delete(peerId);
+        }
+      }
+      updateWebrtcStatus();
     }
     return;
   }
@@ -366,6 +379,11 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
     peer = null;
     existed = false;
   }
+  if (peer && (peer.connectionState === "failed" || peer.connectionState === "closed")) {
+    closePeer(id);
+    peer = null;
+    existed = false;
+  }
   if (!peer) {
     const options = {
       iceServers: state.iceServers,
@@ -399,7 +417,12 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
       });
     };
     peer.onicecandidate = (event) => {
-      if (event.candidate) sendSignal(id, "candidate", event.candidate, { relay: peer.__itoioRelay });
+      if (event.candidate) {
+        if (peer.__itoioRelay && event.candidate.candidate.indexOf("typ relay") === -1) {
+          return;
+        }
+        sendSignal(id, "candidate", event.candidate, { relay: peer.__itoioRelay });
+      }
     };
     peer.onconnectionstatechange = () => {
       if (["failed", "disconnected", "closed"].includes(peer.connectionState)) {
@@ -438,7 +461,11 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
   }
 
   if (initiator && (!existed || tracksAdded || (tracksReplaced && peer.signalingState === "stable"))) {
-    let offer = await peer.createOffer();
+    let offerOptions = {};
+    if (peer.__itoioRelay) {
+      offerOptions = { iceRestart: true };
+    }
+    let offer = await peer.createOffer(offerOptions);
     if (offer.sdp) {
       offer = {
         type: offer.type,
@@ -499,7 +526,7 @@ async function receivePeerSignal(type, payload) {
     render();
     return;
   }
-  const peer = await ensurePeer(from, false, wantsRelay);
+  const peer = await ensurePeer(from, true, wantsRelay);
   if (type === "offer") {
     if (peer.signalingState !== "stable") {
       closePeer(from);
@@ -533,7 +560,7 @@ function closePeer(id) {
 
 function handlePeerFailure(id, peer) {
   if (state.peers.get(id) !== peer) return;
-  if (state.iceMode === "turn" && !peer.__itoioRelay && !state.relayFallbackPeers.has(id) && currentUser()?.owner) {
+  if (!peer.__itoioRelay && !state.relayFallbackPeers.has(id)) {
     state.relayFallbackPeers.add(id);
     state.peerStates.set(id, "connecting");
     updateWebrtcStatus();

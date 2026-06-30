@@ -53,7 +53,7 @@ var gConf = &Config{
 	Turn: TurnConfig{
 		Port:     15432,
 		Realm:    "ito-webrtc",
-		Mode:     TurnModeStun,
+		Mode:     TurnModeTurn,
 		PublicIP: "172.20.10.2",
 	},
 	Log: LogConfig{

@@ -30,7 +30,7 @@ export function roomPage(webrtcStatusText, statusText) {
           <button class="${state.stream ? "secondary" : "primary"}" id="share-screen" ${currentUser()?.owner ? "" : "disabled"}>
             ${state.stream ? icon("logOut") + "停止共享" : icon("screen") + "开始共享"}
           </button>
-          <div class="room-count">${icon("users")}<span>${(room.users || []).length} 人在线</span></div>
+          <div class="room-count">${icon("users")}<span class="room-count-text">${(room.users || []).length} 人在线</span></div>
         </div>
       </section>
       <aside class="chat-panel">
@@ -131,10 +131,7 @@ export function updateRoomStatusUI(webrtcStatusText, statusText) {
       <div class="status-pill ${state.wsStatus}">${icon("wifi")}${statusText()}</div>
     `;
   }
-  const counter = document.querySelector(".room-count span");
-  if (counter) {
-    counter.textContent = `${(state.room?.users || []).length} 人在线`;
-  }
+  document.querySelector(".room-count-text").textContent = `${(state.room?.users || []).length} 人在线`;
 }
 
 export function sendChat(event) {

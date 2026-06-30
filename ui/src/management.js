@@ -21,7 +21,7 @@ export function controlPage(webrtcStatusText, statusText) {
           ${videoTiles()}
         </div>
         <div class="room-menu">
-          <div class="room-count">${icon("users")}<span>${(room.users || []).length} 人在线</span></div>
+          <div class="room-count">${icon("users")}<span class="room-count-text">${(room.users || []).length} 人在线</span></div>
         </div>
       </section>
       <aside class="chat-panel">
