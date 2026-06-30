@@ -121,6 +121,7 @@ func (a *api) MineDevices(ctx *gin.Context) {
 			ID:    d.Device,
 			Name:  d.Name,
 			State: int(d.State),
+			Temp:  d.Temp,
 		})
 	}
 
