@@ -29,12 +29,22 @@ func (c *Core) DeleteDevice(id string, userID string) error {
 }
 
 func (c *Core) GetDevices(userID string, page, limit int) ([]*entities.DeviceInfo, int64, error) {
-	objs, cnt, err := c.d.GetDevicesByUser(userID, page, limit)
+	objs, cnt, err := c.d.GetDevicesByUser(userID)
 	if err != nil {
 		return nil, 0, err
 	}
-	res := make([]*entities.DeviceInfo, 0, len(objs))
-	for _, item := range objs {
+	var (
+		minIndex = (page - 1) * limit
+		maxIndex = page * limit
+	)
+	res := make([]*entities.DeviceInfo, 0)
+	for i, item := range objs {
+		if i < minIndex {
+			continue
+		}
+		if i >= maxIndex {
+			break
+		}
 		obj := &entities.DeviceInfo{
 			ID:    item.Device,
 			User:  item.User,

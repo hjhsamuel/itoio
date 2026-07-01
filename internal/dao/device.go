@@ -96,33 +96,46 @@ func (d *Dao) DeleteDevice(deviceId string, userID string) error {
 	})
 }
 
-func (d *Dao) GetDevicesByUser(userID string, page, limit int) ([]*schema.Device, int64, error) {
-	var total int64
-	var list []*schema.Device
+func (d *Dao) GetDevicesByUser(userID string) ([]*schema.Device, int64, error) {
+	var (
+		total  int64
+		list   []*schema.Device
+		delKey []string
+	)
 	err := d.d.View(func(tx *buntdb.Tx) error {
 		pivot := fmt.Sprintf(`{"user":"%s"}`, userID)
-		_ = tx.AscendEqual(schema.IdxDeviceUser, pivot, func(key, value string) bool {
-			total++
-			return true
-		})
-
-		skip := (page - 1) * limit
-		var i int
 		return tx.AscendEqual(schema.IdxDeviceUser, pivot, func(key, value string) bool {
-			if i < skip {
-				i++
+			var obj *schema.Device
+			if err := json.Unmarshal([]byte(value), &obj); err != nil {
 				return true
 			}
-			if len(list) >= limit {
-				return false
-			}
-			var obj *schema.Device
-			if err := json.Unmarshal([]byte(value), &obj); err == nil {
+			switch obj.State {
+			case schema.DeviceStateOnline:
 				list = append(list, obj)
+				total += 1
+			case schema.DeviceStateOffline:
+				if obj.Temp {
+					delKey = append(delKey, key)
+				} else {
+					list = append(list, obj)
+					total += 1
+				}
 			}
 			return true
 		})
 	})
+	if err != nil {
+		return nil, 0, err
+	}
+	// remove device
+	if len(delKey) != 0 {
+		_ = d.d.Update(func(tx *buntdb.Tx) error {
+			for _, key := range delKey {
+				_, _ = tx.Delete(key)
+			}
+			return nil
+		})
+	}
 	return list, total, err
 }
 

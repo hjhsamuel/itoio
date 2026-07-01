@@ -18,9 +18,9 @@ const (
 )
 
 type Device struct {
-	Device string      `json:"id"`    // device id
-	User   string      `json:"user"`  // Owner user ID
-	Name   string      `json:"name"`  // device host name
-	State  DeviceState `json:"state"` // 0: offline, 1: online
-	Temp   bool        `json:"temp"`  // is temporary
+	Device string      `json:"device"` // device id
+	User   string      `json:"user"`   // Owner user ID
+	Name   string      `json:"name"`   // device host name
+	State  DeviceState `json:"state"`  // 0: offline, 1: online
+	Temp   bool        `json:"temp"`   // is temporary
 }

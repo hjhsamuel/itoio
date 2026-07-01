@@ -27,13 +27,15 @@ func (a *api) Login(ctx *gin.Context) {
 		return
 	}
 
-	err = a.srv.AddDevice(user.ID, req.Device, req.DevName)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, &request.Response{
-			Code:    http.StatusInternalServerError,
-			Message: err.Error(),
-		})
-		return
+	if req.Device != "" && req.DevName != "" {
+		err = a.srv.AddDevice(user.ID, req.Device, req.DevName)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, &request.Response{
+				Code:    http.StatusInternalServerError,
+				Message: err.Error(),
+			})
+			return
+		}
 	}
 
 	ctx.SetCookie(request.AuthCookieKey, token, expire, "/", "", false, true)
