@@ -88,7 +88,7 @@ export function devicesPage(statusText) {
           <div class="device-info">
             ${icon("screen")}
             <strong>${escapeHtml(item.name)}</strong>
-            <span class="badge ${item.state === 1 ? "online" : "offline"}">${item.state === 1 ? "在线" : "离线"}</span>
+            <span class="badge ${item.state === 1 ? "offline" : "online"}">${item.state === 1 ? "离线" : "在线"}</span>
           </div>
           <div class="device-actions">
             ${item.state === 1 ? `<button class="primary small" data-control-device="${escapeHtml(item.id)}">${icon("monitor")}控制</button>` : ""}
