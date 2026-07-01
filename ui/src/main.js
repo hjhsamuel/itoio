@@ -448,7 +448,11 @@ async function ensurePeer(id, initiator = false, forceRelay = false) {
       } else {
         const sender = peer.addTrack(track, state.stream);
         if (track.kind === "video") {
-          track.contentHint = "motion";
+          try {
+            track.contentHint = "motion";
+          } catch (e) {
+            console.warn("Could not set contentHint", e);
+          }
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
           params.encodings[0].maxBitrate = 2000000;
@@ -526,9 +530,10 @@ async function receivePeerSignal(type, payload) {
     render();
     return;
   }
-  const peer = await ensurePeer(from, true, wantsRelay);
+  const peer = await ensurePeer(from, false, wantsRelay);
   if (type === "offer") {
     if (peer.signalingState !== "stable") {
+      console.warn("Signaling state is not stable, closing peer and retrying as passive", from);
       closePeer(from);
       return receivePeerSignal(type, payload);
     }
@@ -644,6 +649,9 @@ function sendSignal(to, typ, data, options = {}) {
 function registerDataChannel(id, channel) {
   state.dataChannels.set(id, channel);
   channel.binaryType = "arraybuffer";
+  channel.onopen = () => {
+    updateWebrtcStatus();
+  };
   channel.onmessage = (event) => {
     if (!(event.data instanceof ArrayBuffer)) return;
     const view = new Uint8Array(event.data);

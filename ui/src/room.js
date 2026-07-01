@@ -27,7 +27,7 @@ export function roomPage(webrtcStatusText, statusText) {
         </div>
         <div class="room-menu">
           <button class="ghost" data-page="rooms">${icon("logOut")}离开房间</button>
-          <button class="${state.stream ? "secondary" : "primary"}" id="share-screen" ${currentUser()?.owner ? "" : "disabled"}>
+          <button class="${state.stream ? "secondary" : "primary"}" id="share-screen" ${state.room?.id?.startsWith("rd-") ? (currentUser()?.owner ? "" : "disabled") : ""}>
             ${state.stream ? icon("logOut") + "停止共享" : icon("screen") + "开始共享"}
           </button>
           <div class="room-count">${icon("users")}<span class="room-count-text">${(room.users || []).length} 人在线</span></div>

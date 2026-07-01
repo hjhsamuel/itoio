@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hjhsamuel/itoio/internal/server/core"
 	"github.com/hjhsamuel/itoio/internal/server/handler/request"
 	"github.com/hjhsamuel/itoio/internal/server/handler/schema"
 )
@@ -39,7 +40,7 @@ func (a *api) Login(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, &request.Response{
 		Code: http.StatusOK,
 		Data: &schema.LoginRsp{
-			ID:       user.ID,
+			ID:       core.GenerateConnUUID(user.ID, req.Device),
 			Nickname: user.Nickname,
 			Expire:   expire,
 		},
