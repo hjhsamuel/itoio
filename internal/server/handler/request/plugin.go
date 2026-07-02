@@ -11,7 +11,7 @@ import (
 func WithAuth(ctx *gin.Context) {
 	user, err := ParseCookie(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, &Response{
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &Response{
 			Code:    http.StatusUnauthorized,
 			Message: "unauthorized",
 		})
