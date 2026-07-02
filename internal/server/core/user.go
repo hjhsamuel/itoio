@@ -6,6 +6,7 @@ import (
 
 	"github.com/hjhsamuel/itoio/internal/common"
 	"github.com/hjhsamuel/itoio/internal/dao/schema"
+	"github.com/hjhsamuel/itoio/internal/entities"
 	"github.com/hjhsamuel/itoio/pkg/password"
 	"github.com/hjhsamuel/itoio/pkg/token"
 )
@@ -30,20 +31,43 @@ func (c *Core) InitFirstUser() (string, string, error) {
 	return "admin", passwd, nil
 }
 
-func (c *Core) UserLogin(name, passwd, device string) (*schema.User, int, string, error) {
+func (c *Core) UserLogin(name, passwd, device string) (*schema.User, *entities.Login, error) {
 	user, err := c.d.GetUserByName(name)
 	if err != nil {
-		return nil, 0, "", err
+		return nil, nil, err
 	}
 	matched, err := password.VerifyPassword(passwd, user.Password)
 	if err != nil || !matched {
-		return nil, 0, "", errors.New("invalid username or password")
+		return nil, nil, errors.New("invalid username or password")
 	}
 	out, err := token.Encode(user.ID, device, common.JwtSalt, common.JwtExp)
 	if err != nil {
-		return nil, 0, "", err
+		return nil, nil, err
 	}
-	return user, int(common.JwtExp.Seconds()), out, nil
+
+	t := &entities.Login{
+		Token:  out,
+		Expire: int64(common.JwtExp.Seconds()),
+	}
+
+	if device != "" {
+		rt, err := c.generateRefreshToken()
+		if err != nil {
+			return nil, nil, err
+		}
+		t.RefreshToken = rt
+
+		err = c.d.AddToken(&schema.Token{
+			User:   user.ID,
+			Device: device,
+			Data:   rt,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return user, t, nil
 }
 
 func (c *Core) UserRegister(code string, name, passwd, nickname string) (string, error) {

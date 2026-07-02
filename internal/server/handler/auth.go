@@ -18,7 +18,13 @@ func (a *api) Login(ctx *gin.Context) {
 		})
 		return
 	}
-	user, expire, token, err := a.srv.UserLogin(req.Name, req.Password, req.Device)
+
+	var deviceId string
+	if req.Device != nil {
+		deviceId = req.Device.ID
+	}
+
+	user, token, err := a.srv.UserLogin(req.Name, req.Password, deviceId)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, &request.Response{
 			Code:    http.StatusInternalServerError,
@@ -27,8 +33,8 @@ func (a *api) Login(ctx *gin.Context) {
 		return
 	}
 
-	if req.Device != "" && req.DevName != "" {
-		err = a.srv.AddDevice(user.ID, req.Device, req.DevName)
+	if deviceId != "" {
+		err = a.srv.AddDevice(user.ID, req.Device.ID, req.Device.Name)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, &request.Response{
 				Code:    http.StatusInternalServerError,
@@ -38,13 +44,14 @@ func (a *api) Login(ctx *gin.Context) {
 		}
 	}
 
-	ctx.SetCookie(request.AuthCookieKey, token, expire, "/", "", false, true)
+	ctx.SetCookie(request.AuthCookieKey, token.Token, int(token.Expire), "/", "", false, true)
 	ctx.JSON(http.StatusOK, &request.Response{
 		Code: http.StatusOK,
 		Data: &schema.LoginRsp{
-			ID:       core.GenerateConnUUID(user.ID, req.Device),
+			ID:       core.GenerateConnUUID(user.ID, deviceId),
 			Nickname: user.Nickname,
-			Expire:   expire,
+			Expire:   int(token.Expire),
+			Token:    token.RefreshToken,
 		},
 	})
 }
@@ -79,23 +86,44 @@ func (a *api) Register(ctx *gin.Context) {
 }
 
 func (a *api) Refresh(ctx *gin.Context) {
-	val, exists := ctx.Get(request.AuthCtxKey)
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, &request.Response{
-			Code:    http.StatusUnauthorized,
-			Message: "unauthorized",
+	var req *schema.RefreshReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, &request.Response{
+			Code:    http.StatusBadRequest,
+			Message: "invalid request",
 		})
 		return
 	}
-	user, ok := val.(*request.User)
-	if !ok {
-		ctx.JSON(http.StatusUnauthorized, &request.Response{
-			Code:    http.StatusUnauthorized,
-			Message: "unauthorized",
-		})
-		return
+
+	var (
+		userId   string
+		deviceId string
+	)
+	if req.Token == "" {
+		// web
+		user, err := request.ParseCookie(ctx)
+		if err != nil {
+			ctx.JSON(http.StatusUnauthorized, &request.Response{
+				Code:    http.StatusUnauthorized,
+				Message: "unauthorized",
+			})
+			return
+		}
+		userId, deviceId = user.ID, user.Device
+	} else {
+		// agent
+		obj, err := a.srv.CheckRefreshToken(req.Token)
+		if err != nil {
+			ctx.JSON(http.StatusUnauthorized, &request.Response{
+				Code:    http.StatusUnauthorized,
+				Message: "unauthorized",
+			})
+			return
+		}
+		userId, deviceId = obj.User, obj.Device
 	}
-	expire, token, err := a.srv.RefreshToken(user.ID, user.Device)
+
+	expire, token, err := a.srv.RefreshToken(userId, deviceId)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, &request.Response{
 			Code:    http.StatusUnauthorized,
@@ -103,11 +131,20 @@ func (a *api) Refresh(ctx *gin.Context) {
 		})
 		return
 	}
+
+	rsp := &schema.RefreshRsp{
+		Expire: expire,
+	}
+	if req.Token != "" {
+		refreshToken, err := a.srv.RegenerateRefreshToken(userId, deviceId)
+		if err == nil {
+			rsp.Token = refreshToken
+		}
+	}
+
 	ctx.SetCookie(request.AuthCookieKey, token, expire, "/", "", false, true)
 	ctx.JSON(http.StatusOK, &request.Response{
 		Code: http.StatusOK,
-		Data: &schema.RefreshRsp{
-			Expire: expire,
-		},
+		Data: rsp,
 	})
 }

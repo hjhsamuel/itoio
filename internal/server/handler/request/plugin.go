@@ -9,26 +9,28 @@ import (
 )
 
 func WithAuth(ctx *gin.Context) {
-	cookie, err := ctx.Cookie(AuthCookieKey)
+	user, err := ParseCookie(ctx)
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &Response{
+		ctx.JSON(http.StatusUnauthorized, &Response{
 			Code:    http.StatusUnauthorized,
 			Message: "unauthorized",
 		})
 		return
+	}
+	ctx.Set(AuthCtxKey, user)
+	ctx.Next()
+}
+
+func ParseCookie(ctx *gin.Context) (*User, error) {
+	cookie, err := ctx.Cookie(AuthCookieKey)
+	if err != nil {
+		return nil, err
 	}
 
 	claim, err := token.Decode(cookie, common.JwtSalt)
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, &Response{
-			Code:    http.StatusUnauthorized,
-			Message: "unauthorized",
-		})
-		return
+		return nil, err
 	}
-	ctx.Set(AuthCtxKey, &User{
-		ID:     claim.ID,
-		Device: claim.Device,
-	})
-	ctx.Next()
+
+	return &User{ID: claim.ID, Device: claim.Device}, nil
 }

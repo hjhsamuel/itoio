@@ -18,7 +18,7 @@ func Routes(c *core.Core, e *gin.Engine) error {
 
 	e.POST("/login", a.Login)
 	e.POST("/register", a.Register)
-	e.PUT("/refresh", request.WithAuth, a.Refresh)
+	e.PUT("/refresh", a.Refresh)
 
 	group := e.Group("/ito")
 	group.Use(request.WithAuth)

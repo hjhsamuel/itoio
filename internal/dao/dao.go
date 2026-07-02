@@ -32,6 +32,11 @@ func (d *Dao) init() error {
 		return err
 	}
 
+	err = d.d.CreateIndex(schema.IdxTokenData, schema.TokenPattern, buntdb.IndexJSON("data"))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
