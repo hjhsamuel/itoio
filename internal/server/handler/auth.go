@@ -86,7 +86,7 @@ func (a *api) Register(ctx *gin.Context) {
 }
 
 func (a *api) Refresh(ctx *gin.Context) {
-	var req *schema.RefreshReq
+	var req schema.RefreshReq
 	_ = ctx.ShouldBindJSON(&req)
 
 	var (
