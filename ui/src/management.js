@@ -91,7 +91,7 @@ export function devicesPage(statusText) {
             <span class="badge ${item.state === 1 ? "offline" : "online"}">${item.state === 1 ? "离线" : "在线"}</span>
           </div>
           <div class="device-actions">
-            ${item.state === 1 ? `<button class="primary small" data-control-device="${escapeHtml(item.id)}">${icon("monitor")}控制</button>` : ""}
+            ${item.state === 2 ? `<button class="primary small" data-control-device="${escapeHtml(item.id)}">${icon("monitor")}控制</button>` : ""}
           </div>
         </div>
       `).join("") || '<p class="muted">还没有绑定的设备。</p>'}

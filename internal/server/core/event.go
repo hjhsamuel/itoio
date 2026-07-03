@@ -3,17 +3,17 @@ package core
 import "encoding/json"
 
 const (
-	EventTypeOffer     = "offer"
-	EventTypeAnswer    = "answer"
-	EventTypeCandidate = "candidate"
+	EventTypeOffer     = "offer"     // peer send offer
+	EventTypeAnswer    = "answer"    // peer send answer
+	EventTypeCandidate = "candidate" // peer send candidate
 
-	EventTypeCreate = "create"
-	EventTypeJoin   = "join"
-	EventTypeLeave  = "leave"
+	EventTypeCreate = "create" // user create room
+	EventTypeJoin   = "join"   // user join room
+	EventTypeLeave  = "leave"  // user leave room
 
-	EventTypeStopShare = "stop_share"
+	EventTypeStopShare = "stop_share" // user stop share
 
-	EventTypeCJoin = "cjoin"
+	EventTypeCJoin = "cjoin" // user join control room
 )
 
 type Request struct {
