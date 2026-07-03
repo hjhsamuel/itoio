@@ -11,7 +11,7 @@ import {
 } from "./management.js";
 import {
   roomPage, updateRoomStatusUI, sendChat, pushChat, currentUser, peerName, sendInput,
-  MSG_TYPE_CHAT, MSG_TYPE_INPUT, MSG_TYPE_CONTROL
+  MSG_TYPE_CHAT, MSG_TYPE_INPUT
 } from "./room.js";
 import { initCapture } from "./device.js";
 
@@ -168,7 +168,7 @@ function bindApp() {
 
 function updateWsStatus(status) {
   state.wsStatus = status;
-  if (state.page === "room" && state.room) {
+  if ((state.page === "room" || state.page === "control") && state.room) {
     updateRoomStatusUI(webrtcStatusText, statusText);
   } else {
     render();
@@ -259,7 +259,7 @@ function cleanupRoom() {
   state.peerStates.clear();
   state.relayFallbackPeers.clear();
   state.webrtcStatus = "offline";
-  state.page = "rooms";
+  state.page = state.page === "control" ? "devices" : "rooms";
   render();
 }
 
@@ -532,6 +532,8 @@ async function receivePeerSignal(type, payload) {
   }
   const peer = await ensurePeer(from, false, wantsRelay);
   if (type === "offer") {
+    console.log("received offer from", from);
+    console.log("peer.signalingState", peer.signalingState);
     if (peer.signalingState !== "stable") {
       console.warn("Signaling state is not stable, closing peer and retrying as passive", from);
       closePeer(from);
@@ -547,6 +549,7 @@ async function receivePeerSignal(type, payload) {
     }
     await peer.setLocalDescription(answer);
     sendSignal(from, "answer", answer, { relay: peer.__itoioRelay });
+    console.log("sent answer to", from, answer);
   } else if (type === "answer") {
     if ((payload.relay === true) !== peer.__itoioRelay) return;
     await peer.setRemoteDescription(payload.data);
@@ -608,12 +611,6 @@ async function updatePeerHolePunchStatus(id, peer) {
     const oldStatus = state.peerStates.get(id);
     const newStatus = direct ? "direct" : "relay";
     state.peerStates.set(id, newStatus);
-    
-    if (newStatus !== oldStatus && (newStatus === "direct" || newStatus === "relay")) {
-      if (state.page === "control") {
-        sendInput(MSG_TYPE_CONTROL, { type: "start" });
-      }
-    }
   } catch {
     state.peerStates.set(id, "connecting");
   }
@@ -632,7 +629,7 @@ function updateWebrtcStatus() {
   } else {
     state.webrtcStatus = "offline";
   }
-  if (state.page === "room" && state.room) {
+  if ((state.page === "room" || state.page === "control") && state.room) {
     updateRoomStatusUI(webrtcStatusText, statusText);
   } else {
     render();

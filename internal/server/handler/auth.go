@@ -87,13 +87,7 @@ func (a *api) Register(ctx *gin.Context) {
 
 func (a *api) Refresh(ctx *gin.Context) {
 	var req *schema.RefreshReq
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, &request.Response{
-			Code:    http.StatusBadRequest,
-			Message: "invalid request",
-		})
-		return
-	}
+	_ = ctx.ShouldBindJSON(&req)
 
 	var (
 		userId   string

@@ -21,6 +21,7 @@ export function controlPage(webrtcStatusText, statusText) {
           ${videoTiles()}
         </div>
         <div class="room-menu">
+          <button class="ghost" data-page="devices">${icon("logOut")}离开房间</button>
           <div class="room-count">${icon("users")}<span class="room-count-text">${(room.users || []).length} 人在线</span></div>
         </div>
       </section>

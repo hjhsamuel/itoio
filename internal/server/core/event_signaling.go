@@ -15,6 +15,7 @@ type EventSignaling struct {
 }
 
 func (e *EventSignaling) Execute(c *Core, info *ConnBase) error {
+	fmt.Println(e.From, e.To, e.Typ)
 	var fromID string
 	if !strings.Contains(e.From, ":") {
 		// browser
@@ -30,13 +31,16 @@ func (e *EventSignaling) Execute(c *Core, info *ConnBase) error {
 	}
 
 	if e.From != fromID {
+		fmt.Printf("e.From [%s] != fromID [%s]\n", e.From, fromID)
 		return fmt.Errorf("signaling sender %s does not match current connection %s", e.From, fromID)
 	}
 	if !c.rooms.InSameRoom(info.UUID, toID) {
+		fmt.Printf("users %s and %s are not in the same room\n", fromID, toID)
 		return fmt.Errorf("users %s and %s are not in the same room", fromID, toID)
 	}
 	conn := c.client[toID]
 	if conn == nil {
+		fmt.Printf("target user %s is not connected\n", toID)
 		return fmt.Errorf("target user %s is not connected", toID)
 	}
 	Write(conn.Write, &entities.Signaling{
