@@ -57,9 +57,19 @@ func (c *Core) GetDevices(userID string, page, limit int) ([]*entities.DeviceInf
 			room, err := c.rooms.GetCurrentRoom(id)
 			if err == nil {
 				obj.Room = room.ID
+			} else {
+				obj.State = int(schema.DeviceStateOffline)
 			}
 		}
 		res = append(res, obj)
 	}
 	return res, cnt, nil
+}
+
+func (c *Core) AddDeviceIfNotExist(userID, deviceId string, name string) error {
+	_, err := c.d.GetDevice(userID, deviceId)
+	if err == nil {
+		return nil
+	}
+	return c.AddDevice(userID, deviceId, name)
 }

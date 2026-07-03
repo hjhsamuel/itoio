@@ -126,10 +126,10 @@ function bindApp() {
   });
   document.querySelector("#create-invite")?.addEventListener("click", createInvite);
   document.querySelector("#refresh-invites")?.addEventListener("click", loadInvites);
-  document.querySelectorAll("[data-control-device]").forEach((btn) => {
+  document.querySelectorAll("[data-control-room]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const deviceId = btn.dataset.controlDevice;
-      sendRoomEvent("cjoin", { id: "rd-" + deviceId, secret: "" });
+      const roomId = btn.dataset.controlRoom;
+      sendRoomEvent("cjoin", { id: roomId, secret: "" });
     });
   });
 

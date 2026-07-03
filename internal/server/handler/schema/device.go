@@ -1,5 +1,13 @@
 package schema
 
+type CreateDeviceReq struct {
+	ID       string `json:"id"`       // device id
+	Name     string `json:"name"`     // device host name
+	Platform string `json:"platform"` // device platform
+	OS       string `json:"os"`       // device os
+	Ver      string `json:"ver"`      // device version
+}
+
 type UpdateDeviceReq struct {
 	Name *string `json:"name"` // Device host name
 }

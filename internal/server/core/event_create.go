@@ -19,6 +19,22 @@ func (e *EventCreate) Execute(c *Core, info *ConnBase) error {
 		} else {
 			name = devObj.Name
 		}
+
+		if r, err := c.rooms.GetCurrentRoom(name); err == nil {
+			Write(info.Write, &entities.EnterRoom{OK: true, Data: r.ID})
+		} else {
+			roomId, err := c.rooms.CreateRoom(e.Secret, e.Mode, &room.RoomUser{
+				ID:       info.UUID,
+				Nickname: name,
+				Owner:    true,
+				Write:    info.Write,
+			})
+			if err != nil {
+				Write(info.Write, &entities.EnterRoom{OK: false, Data: err.Error()})
+				return err
+			}
+			Write(info.Write, &entities.EnterRoom{OK: true, Data: roomId})
+		}
 	} else {
 		// browser
 		if userObj, err := c.d.GetUserByID(info.UserID); err != nil {
@@ -26,19 +42,19 @@ func (e *EventCreate) Execute(c *Core, info *ConnBase) error {
 		} else {
 			name = userObj.Name
 		}
-	}
 
-	roomId, err := c.rooms.CreateRoom(e.Secret, e.Mode, &room.RoomUser{
-		ID:       info.UUID,
-		Nickname: name,
-		Owner:    true,
-		Write:    info.Write,
-	})
-	if err != nil {
-		Write(info.Write, &entities.EnterRoom{OK: false, Data: err.Error()})
-		return err
+		roomId, err := c.rooms.CreateRoom(e.Secret, e.Mode, &room.RoomUser{
+			ID:       info.UUID,
+			Nickname: name,
+			Owner:    true,
+			Write:    info.Write,
+		})
+		if err != nil {
+			Write(info.Write, &entities.EnterRoom{OK: false, Data: err.Error()})
+			return err
+		}
+		Write(info.Write, &entities.EnterRoom{OK: true, Data: roomId})
 	}
-	Write(info.Write, &entities.EnterRoom{OK: true, Data: roomId})
 	if roomObj, err := c.rooms.GetCurrentRoom(info.UUID); err == nil {
 		c.roomInfoChanged(roomObj)
 	}

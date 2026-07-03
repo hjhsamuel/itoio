@@ -8,6 +8,36 @@ import (
 	"github.com/hjhsamuel/itoio/internal/server/handler/schema"
 )
 
+func (a *api) CreateDevice(ctx *gin.Context) {
+	val, _ := ctx.Get(request.AuthCtxKey)
+	user, ok := val.(*request.User)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, &request.Response{
+			Code:    http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	var req schema.CreateDeviceReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, &request.Response{
+			Code:    http.StatusBadRequest,
+			Message: "invalid request",
+		})
+		return
+	}
+
+	err := a.srv.AddDeviceIfNotExist(user.ID, req.ID, req.Name)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, &request.Response{
+			Code:    http.StatusInternalServerError,
+			Message: err.Error(),
+		})
+	}
+	ctx.JSON(http.StatusOK, &request.Response{})
+}
+
 func (a *api) UpdateDevice(ctx *gin.Context) {
 	val, _ := ctx.Get(request.AuthCtxKey)
 	user, ok := val.(*request.User)

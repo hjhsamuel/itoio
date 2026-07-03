@@ -2,6 +2,7 @@ package room
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/hjhsamuel/itoio/internal/entities"
 	"github.com/hjhsamuel/itoio/pkg/password"
@@ -18,6 +19,7 @@ type Room struct {
 	ID     string
 	Secret string
 	Mode   RoomMode
+	Owner  string
 	Users  map[string]*RoomUser
 }
 
@@ -30,6 +32,17 @@ func (r *Room) GetUsers() []*RoomUser {
 }
 
 func (r *Room) AddWatcher(secret string, user *RoomUser) error {
+	if r.Mode == RoomModeControl {
+		// owner can join without secret
+		parts := strings.FieldsFunc(user.ID, func(r rune) bool {
+			return r == ':'
+		})
+		if strings.HasPrefix(r.Owner, parts[0]+":") {
+			r.Users[user.ID] = user
+			return nil
+		}
+	}
+
 	if r.Secret != "" {
 		matched, err := password.VerifyPassword(secret, r.Secret)
 		if err != nil {
@@ -81,6 +94,7 @@ func NewRoom(id, secret string, mode RoomMode, owner *RoomUser) (*Room, error) {
 		ID:    id,
 		Mode:  mode,
 		Users: make(map[string]*RoomUser),
+		Owner: owner.ID,
 	}
 	if secret != "" {
 		passwd, err := password.HashPassword(secret, password.DefaultParams)

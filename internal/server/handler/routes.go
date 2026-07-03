@@ -26,6 +26,7 @@ func Routes(c *core.Core, e *gin.Engine) error {
 	group.GET("/admin/code", a.GetInviteCodeList)
 	group.POST("/admin/code", a.CreateInviteCode)
 	group.PUT("/admin/passwd", a.UpdatePassword)
+	group.POST("/device", a.CreateDevice)
 	group.PUT("/device", a.UpdateDevice)
 	group.DELETE("/device", a.DelDevice)
 	group.GET("/device", a.MineDevices)
