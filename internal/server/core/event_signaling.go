@@ -15,7 +15,6 @@ type EventSignaling struct {
 }
 
 func (e *EventSignaling) Execute(c *Core, info *ConnBase) error {
-	fmt.Println(e.From, e.To, e.Typ)
 	var fromID string
 	if !strings.Contains(e.From, ":") {
 		// browser

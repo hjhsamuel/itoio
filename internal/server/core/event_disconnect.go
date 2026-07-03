@@ -23,10 +23,15 @@ func (e *EventDisconnect) Execute(c *Core, info *ConnBase) error {
 	delete(c.client, info.UUID)
 	Write(info.Write, &entities.CloseConn{Code: e.Code, Msg: e.Msg})
 
-	if _, err := c.rooms.MarkDisconnected(info.UUID); err != nil {
-		return nil
+	if info.Device != "" {
+		_ = c.leaveRoom(info.UUID, "device disconnect")
+	} else {
+		if _, err := c.rooms.MarkDisconnected(info.UUID); err != nil {
+			return nil
+		}
+		c.scheduleDisconnectExpiry(info.UserID, info.Device, info.UUID)
 	}
-	c.scheduleDisconnectExpiry(info.UserID, info.Device, info.UUID)
+
 	return nil
 }
 
